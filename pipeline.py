@@ -16,6 +16,8 @@ from faket_polnet.utils.utils import transform_directory_structure,copy_style_mi
 from faket_polnet.utils.json import analyze_json_files,visualize_results,print_style_stats
 from faket_polnet.utils.label_transform import label_transform,find_labels_table,get_tomos_motif_list_paths
 
+from faket_polnet.utils.faket_wrapper import style_transfer_wrapper
+
 ssl._create_default_https_context = ssl._create_unverified_context
 
 def parse_arguments():
@@ -203,46 +205,37 @@ def main():
             
         print(f"Processing: Clean={CLEAN_TOMOGRAM}, Noisy={NOISY_TOMOGRAM}, Style={STYLE_TOMOGRAM}")
 
+        # build extra_args dict
+        extra_args = {
+            "init": NOISY_TOMOGRAM, 
+            "seq_start": 0, 
+            "seq_end": seq_end, 
+            "content-weight": 1.0, 
+            "tv-weight": 0, 
+            "initial-iterations": 1, 
+            "step-size": faket_step_size, 
+            "avg-decay": 0.99, 
+            "style-scale-fac": 1.0, 
+            "pooling": "max", 
+            "content_layers": 8, 
+            "content_layers_weights": 100, 
+            "model_weights": "pretrained",
+            }
+
         # Build faket command without environment setup
-        style_transfer_cmd = [
-            "python3", "-m", "faket.style_transfer.cli",
-            CLEAN_TOMOGRAM, STYLE_TOMOGRAM,
-            "--init", NOISY_TOMOGRAM,
-            "--output", OUTPUT_TOMOGRAM,
-            "--devices", f"cuda:{faket_gpu}",
-            "--random-seed", "0",
-            "--min-scale", str(faket_min_scale),
-            "--end-scale", str(faket_end_scale),
-            "--seq_start", "0",
-            "--seq_end", str(seq_end),
-            "--style-weights", "1.0",
-            "--content-weight", "1.0",
-            "--tv-weight", "0",
-            "--iterations", str(faket_iterations),
-            "--initial-iterations", "1",
-            "--save-every", "2",
-            "--step-size", str(faket_step_size),
-            "--avg-decay", "0.99",
-            "--style-scale-fac", "1.0",
-            "--pooling", "max",
-            "--content_layers", "8",
-            "--content_layers_weights", "100",
-            "--model_weights", "pretrained"
-        ]
-        
-        # Set CUDA_VISIBLE_DEVICES environment variable
-        env = os.environ.copy()
-        env["CUDA_VISIBLE_DEVICES"] = str(faket_gpu)
-        
-        try:
-            print(f"Running faket command: {' '.join(style_transfer_cmd)}")
-            subprocess.run(style_transfer_cmd, env=env, check=True)
-        except subprocess.CalledProcessError as e:
-            print(f"Error running style transfer for {CLEAN_TOMOGRAM}: {e}")
-            continue
-        except FileNotFoundError: # TODO can remove this msg
-            print("Error: faket not found. Please make sure faket is installed and available in your PATH")
-            continue
+        style_transfer_wrapper(
+            content_path=CLEAN_TOMOGRAM,
+            style_paths=[STYLE_TOMOGRAM],
+            output_path=OUTPUT_TOMOGRAM,
+            devices=[f"cuda:{faket_gpu}"],
+            iterations=faket_iterations,
+            save_every=5,
+            min_scale=faket_min_scale,
+            end_scale=faket_end_scale,
+            random_seed=0,
+            style_weights=[1.0],            
+            extra_args=extra_args,
+        )
 
     print("Style transfer completed for one index!")
 
@@ -273,8 +266,8 @@ def main():
         )
     Micrograph_paths = Micrographs_sorted
 
-    print(f"Micrograph Paths: {Micrograph_paths}")
-    print(f"TEM Paths: {TEM_paths}")
+    print(f"Micrograph Paths: {[str(p.relative_to(base_dir)) for p in Micrograph_paths]}")
+    print(f"TEM Paths: {[str(p.relative_to(base_dir)) for p in TEM_paths]}")
 
     snr_list = []
     for path in Micrograph_paths:
