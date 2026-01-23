@@ -1,6 +1,6 @@
 # Style Transfer Pipeline for Synthetic Cryo-ET Data
 
-A comprehensive pipeline for applying style transfer to synthetic cryo-electron tomography (cryo-ET) data using faket, with support for micrograph projection, reconstruction, and training data preparation.
+A comprehensive pipeline for applying neural style transfer to synthetic cryo-electron tomography (cryo-ET) data using [FakET](https://github.com/paloha/faket.git), with support for micrograph projection, reconstruction, and training data preparation. The motivation for this package is to combine the [fakET-polnet](https://github.com/ybo-source/fakET_polnet) pipeline by ybo-source and FakET into a single, easy-to-install package, simplifying setup and usage on both local and HPC systems.
 
 ## Overview
 
@@ -19,7 +19,7 @@ This pipeline processes cryo-ET simulation data and applies neural style transfe
 - NumPy
 - Pandas
 - scikit-learn
-- [faket](https://github.com/paloha/faket.git) - for neural style transfer
+- [FakET](https://github.com/paloha/faket.git)
 - IMOD containing system
 
 ### Optional Dependencies
