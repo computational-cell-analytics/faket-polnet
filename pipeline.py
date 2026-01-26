@@ -116,7 +116,8 @@ def main():
     
     # Calculate seq_end
     seq_end = len(np.arange(*tilt_range))
-    print(f"seq_end is {seq_end}")
+    print(f"tilt_range: {tilt_range}")
+    print(f"seq_end: {seq_end}")
 
     # Simulation parameters
     simulation_base_dir = base_dir / f"simulation_dir_{simulation_index}"
@@ -222,7 +223,6 @@ def main():
             "model_weights": "pretrained",
             }
 
-        # Build faket command without environment setup
         style_transfer_wrapper(
             content_path=CLEAN_TOMOGRAM,
             style_paths=[STYLE_TOMOGRAM],
@@ -249,29 +249,27 @@ def main():
     if not base_dir_TEM.exists() or not base_dir_Micrographs.exists():
         print(f"Required directories not found: {base_dir_TEM} or {base_dir_Micrographs}")
         return
-
-    # TODO remove redundant
-    # tomograms = [p for p in base_dir_TEM.iterdir()]
     
     tomograms_sorted = sorted(
         base_dir_TEM.iterdir(), 
         key=lambda x: (int(x.name.split('_')[1]), int(x.name.split('_')[2]))
         )
-    TEM_paths = tomograms_sorted
+    TEM_paths = [str(p) for p in tomograms_sorted]
 
 
     Micrographs_sorted = sorted(
         base_dir_Micrographs.iterdir(),
         key=lambda x: (int(x.name.split('_')[1]), int(x.name.split('_')[2]))
         )
-    Micrograph_paths = Micrographs_sorted
+    Micrograph_paths = [str(p) for p in Micrographs_sorted]
 
-    print(f"Micrograph Paths: {[str(p.relative_to(base_dir)) for p in Micrograph_paths]}")
-    print(f"TEM Paths: {[str(p.relative_to(base_dir)) for p in TEM_paths]}")
+
+    print(f"Micrograph Paths: {[Micrograph_paths]}")
+    print(f"TEM Paths: {[TEM_paths]}")
 
     snr_list = []
     for path in Micrograph_paths:
-        if path.exists():
+        if os.path.exists(path):
             for micrograph_file in os.listdir(path):
                 if micrograph_file.split("_")[-2] != "clean":
                     snr = micrograph_file.split("_")[-1].split(".")
@@ -282,25 +280,29 @@ def main():
 
     faket_paths = [p for p in base_dir_faket.glob("*.mrc")]
 
+    print("\n=== Tomogram Reconstruction ===\n") 
     if faket_paths:
         # Sorting function
         sorted_tomograms_faket = sorted(faket_paths, key=lambda x: (int(x.name.split('_')[4]), int(x.name.split('_')[5].split('.')[0])))
-        print(sorted_tomograms_faket)
+        #print(sorted_tomograms_faket)
         
-        source_dir = base_dir / f"reconstructed_tomograms_{micrograph_index}"
-        target_dir_faket = base_dir / f"train_directory_{train_dir_index}/static_{micrograph_index}/ExperimentRuns_faket"
-        target_dir_basic = base_dir / f"train_directory_{train_dir_index}/static_{micrograph_index}/ExperimentRuns_basic"
-        faket_paths = sorted_tomograms_faket
+        # refactoring: converted Path objects back to str
+        source_dir = f"{base_dir}/reconstructed_tomograms_{micrograph_index}"
+        target_dir_faket = f"{base_dir}/train_directory_{train_dir_index}/static_{micrograph_index}/ExperimentRuns_faket"
+        target_dir_basic = f"{base_dir}/train_directory_{train_dir_index}/static_{micrograph_index}/ExperimentRuns_basic"
+        faket_paths = [str(p) for p in sorted_tomograms_faket]
         
         if not os.path.exists(target_dir_faket):
             reconstruct_micrographs_only_recon3D(TEM_paths, faket_paths, source_dir, snr_list, custom_mic=True, micrograph_threshold=100)
             reconstruct_micrographs_only_recon3D(TEM_paths, faket_paths, source_dir, snr_list, custom_mic=False, micrograph_threshold=100)
+
+            print("\n=== Cleanup ===\n") 
             transform_directory_structure(source_dir, target_dir_faket, target_dir_basic, copy_flag=False)
             try:
                 shutil.rmtree(source_dir)
-                print(f"Successfully deleted the directory: {source_dir}")
+                print(f"Successfully deleted the directory: {source_dir}\n")
             except Exception as e:
-                print(f"Error deleting directory {source_dir}: {e}")
+                print(f"Error deleting directory {source_dir}: {e}\n")
     else:
         print("No faket tomogram found.")
 

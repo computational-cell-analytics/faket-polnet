@@ -3,10 +3,8 @@
 #SBATCH -p grete:shared
 #SBATCH --job-name=test_faket
 #SBATCH -o data/simulation/faket/slurm_logs/slurm-%j.out
-#SBATCH -t 24:00:00
+#SBATCH -t 1:00:00
 #SBATCH --nodes=1
-#SBATCH --cpus-per-task=8
-#SBATCH --mem=40G
 #SBATCH -G A100:1
  
 source ~/.bashrc
@@ -38,10 +36,10 @@ python pipeline.py $DATA_DIR \
     --train_dir_index 0 \
     --static_index 0 \
     --tilt_start -60 \
-    --tilt_end 60 \
+    --tilt_end 61 \
     --tilt_step 2 \
     --detector_snr 0.15 0.20 \
-    --simulation_name "run1" \
+    --simulation_name "deepict_run1" \
     --faket_iterations 5 \
     --faket_step_size 0.15 \
     --random_faket

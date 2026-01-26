@@ -59,8 +59,6 @@ def style_transfer_wrapper(
                 pass  # flag argument
 
     # temporarily replace sys.argv to call faket CLI
-
-    print(f"DEBUG: {argv}") # TODO remove debug
     old_argv = sys.argv
     sys.argv = argv
     try:
