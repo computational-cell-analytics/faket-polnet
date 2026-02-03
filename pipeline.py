@@ -11,10 +11,10 @@ import configargparse
 from pathlib import Path
 from ast import literal_eval
 from faket_polnet.utils.utils import get_absolute_paths,check_mrc_files
-from faket_polnet.utils.reconstruct import project_micrographs,reconstruct_micrographs_only_recon3D,project_style_micrographs
-from faket_polnet.utils.utils import transform_directory_structure,copy_style_micrographs,compare_tomograms
-from faket_polnet.utils.json import analyze_json_files,visualize_results,print_style_stats
-from faket_polnet.utils.label_transform import label_transform,find_labels_table,get_tomos_motif_list_paths
+from faket_polnet.utils.reconstruct import project_content_micrographs,reconstruct_micrographs_only_recon3D,project_style_micrographs
+from faket_polnet.utils.utils import collect_results_to_train_dir, copy_style_micrographs, compare_tomograms
+from faket_polnet.utils.json import analyze_json_files, visualize_results, print_style_stats
+from faket_polnet.utils.label_transform import label_transform, find_labels_table, get_tomos_motif_list_paths
 
 from faket_polnet.utils.faket_wrapper import style_transfer_wrapper
 
@@ -33,13 +33,13 @@ def parse_args():
                         help='Base directory containing simulation and style directories')
     
     # Index parameters
-    parser.add_argument('--micrograph_index', type=int, default=0, help='Micrograph index')
+    #parser.add_argument('--micrograph_index', type=int, default=0, help='Micrograph index')
     parser.add_argument('--style_index', type=int, default=0, help='Style index')
-    parser.add_argument('--micrograph_directory_index', type=int, default=0, help='Micrograph directory index')
+    parser.add_argument('--micrograph_dir_index', type=int, default=0, help='Micrograph directory index')
     parser.add_argument('--simulation_index', type=int, default=0, help='Simulation index')
-    parser.add_argument('--faket_index', type=int, default=0, help='Faket index')
+    #parser.add_argument('--faket_index', type=int, default=0, help='Faket index')
     parser.add_argument('--train_dir_index', type=int, default=0, help='Train directory index')
-    parser.add_argument('--static_index', type=int, default=0, help='Static index')
+    #parser.add_argument('--static_index', type=int, default=0, help='Static index')
     
     # Tilt range parameters
     parser.add_argument('--tilt_start', type=int, default=-60, help='Tilt series start angle')
@@ -64,8 +64,7 @@ def validate_directories(base_dir, simulation_index, style_index):
     """Validate that required directories exist"""
     simulation_dir = base_dir / f"simulation_dir_{simulation_index}"
     style_tomo_dir = base_dir / f"style_tomograms_{style_index}"
-    style_dir = base_dir / f"faket_data/style_micrographs_{style_index}"
-    
+    style_dir = base_dir / f"style_micrographs_{style_index}"
     if not simulation_dir.exists():
         raise ValueError(
             f"ERROR Simulation directory not found: {simulation_dir}"
@@ -80,11 +79,11 @@ def validate_directories(base_dir, simulation_index, style_index):
             f"ERROR: Neither style tomogram directory {style_tomo_dir.relative_to(base_dir)} nor style directory {style_dir.relative_to(base_dir)} found in {base_dir}. At least one must exist."
             )
     print(f"Parent directory: {base_dir}")
-    print(f"Found simulation directory: {simulation_dir.relative_to(base_dir)}")
+    print(f"Found simulation directory: {simulation_dir}")
     if style_tomo_exists:
-        print(f"Found style tomogram directory: {style_tomo_dir.relative_to(base_dir)}")
+        print(f"Found style tomogram directory: {style_tomo_dir}")
     if style_dir_exists:
-        print(f"Found style directory: {style_dir.relative_to(base_dir)}")
+        print(f"Found style directory: {style_dir}")
     
     return simulation_dir, style_tomo_dir, style_dir, style_tomo_exists, style_dir_exists
 
@@ -100,13 +99,13 @@ def main():
     simulation_dir, style_tomo_dir, style_dir, style_tomo_exists, style_dir_exists = validate_directories(base_dir, args.simulation_index, args.style_index)
     
     # Set parameters from arguments
-    micrograph_index = args.micrograph_index
+    #micrograph_index = args.micrograph_index
     style_index = args.style_index
-    micrograph_directory_index = args.micrograph_directory_index
+    micrograph_dir_index = args.micrograph_dir_index # should be the same as train_dir_index
     simulation_index = args.simulation_index
-    faket_index = args.faket_index
+    #faket_index = args.faket_index
     train_dir_index = args.train_dir_index
-    static_index = args.static_index
+    #static_index = args.static_index
     tilt_range = (args.tilt_start, args.tilt_stop + 1, args.tilt_step)
     detector_snr = args.detector_snr
     denoised = args.denoised
@@ -124,30 +123,28 @@ def main():
     print(f"tilt_range: {tilt_range}")
     print(f"seq_end: {seq_end}")
 
-    # TODO refactoring - only one simulation_dir per run (polnet simulation condition)
     # Simulation parameters
     simulation_base_dir = base_dir / f"simulation_dir_{simulation_index}"
     simulation_dirs = [simulation_base_dir]
     labels_table = find_labels_table(simulation_dirs)
 
-    # TODO refactoring - this logic seems unncessary since we only have one input csv dir per run
     in_csv_list = sorted(get_tomos_motif_list_paths(simulation_base_dir))
-    print(in_csv_list) #TODO debug
-    out_dir = base_dir / f"train_directory_{train_dir_index}/overlay_{simulation_index}"
+    out_dir = base_dir / f"train_dir_{train_dir_index}/overlay_{simulation_index}"
     csv_dir_list = [Path(d) / "csv" for d in get_absolute_paths(simulation_base_dir)]
-
-    out_base_dir_style = base_dir / f"style_micrographs_output_{style_index}"
 
     # Handle style directory logic
     print("\n=== Style Micrograph Projection ===\n")
+    micrographs_base_dir = base_dir / f"micrograph_dir_{micrograph_dir_index}"
+    style_mics_out_dir = micrographs_base_dir / f"style_micrographs_{style_index}"
+
     if style_dir_exists:
         print("Style directory already exists, skipping projection and copy.")
     elif style_tomo_exists:
         # Only run projection if style_tomo_dir exists and style_dir doesn't exist
         print("Style tomogram directory found but style directory doesn't exist. Running projection...")
-        out_base_dir_style.mkdir(parents=True, exist_ok=True)
-        project_style_micrographs(style_tomo_dir, out_base_dir_style, tilt_range=tilt_range, ax="Y", cluster_run=False, projection_threshold=100)
-        copy_style_micrographs(out_base_dir_style, style_dir, copy_flag=False)
+        style_mics_out_dir.mkdir(parents=True, exist_ok=True)
+        project_style_micrographs(style_tomo_dir, style_mics_out_dir, tilt_range=tilt_range, ax="Y", cluster_run=False, projection_threshold=100)
+        copy_style_micrographs(style_mics_out_dir, style_dir, copy_flag=False)
         print(f"Style projection completed and copied to: {style_dir}")
     else:
         # This should not happen due to validation, but just in case
@@ -155,14 +152,14 @@ def main():
 
     # Label transformation
     if not out_dir.exists():
-        label_transform(in_csv_list, out_dir, csv_dir_list, labels_table, mapping_flag=False)
+        label_transform(in_csv_list, out_dir, csv_dir_list, labels_table, simulation_index=simulation_index, mapping_flag=False)
     
-    # Project micrographs
+    # Project content micrographs
     print("\n=== Simulation Micrograph Projection ===\n")
-    out_base_dir_micrographs = base_dir / f"micrograph_directory_{micrograph_directory_index}/micrographs_output_dir_{micrograph_index}"
-    if not out_base_dir_micrographs.exists():
-        snr_list = project_micrographs(
-            out_base_dir_micrographs, simulation_dirs, tilt_range=tilt_range,
+    content_mics_out_dir = micrographs_base_dir / f"content_micrographs_dir_{simulation_index}"
+    if not content_mics_out_dir.exists():
+        snr_list = project_content_micrographs(
+            content_mics_out_dir, simulation_dirs, tilt_range=tilt_range,
             detector_snr=detector_snr, micrograph_threshold=30, reconstruct_3d=False,
             add_misalignment=True, simulation_threshold=1
         )
@@ -171,8 +168,9 @@ def main():
     STYLE_DIR = style_dir  # Use the validated style directory
 
     # Define directories
-    CLEAN_DIR = base_dir / f"micrograph_directory_{micrograph_directory_index}/micrographs_output_dir_{micrograph_index}/Micrographs" 
-    OUTPUT_DIR = base_dir / f"micrograph_directory_{micrograph_directory_index}/faket_mics_style_transfer_{faket_index}"
+    CLEAN_DIR = content_mics_out_dir / "Micrographs"
+    OUTPUT_DIR = micrographs_base_dir / f"faket_micrographs_{simulation_index}"
+
 
     # Create OUTPUT_DIR if it doesn't exist
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
@@ -247,10 +245,12 @@ def main():
 
     print("Style transfer completed for one index!")
 
-    base_dir_Micrographs = out_base_dir_micrographs / "Micrographs"
-    base_dir_TEM = out_base_dir_micrographs / "TEM"
-    base_dir_faket = base_dir / f"micrograph_directory_{micrograph_directory_index}/faket_mics_style_transfer_{faket_index}"
-    snr_list_dir = base_dir / f"micrograph_directory_{micrograph_directory_index}/snr_list_dir"
+    base_dir_Micrographs = content_mics_out_dir / "Micrographs"
+    base_dir_TEM = content_mics_out_dir / "TEM"
+    base_dir_faket = micrographs_base_dir / f"faket_micrographs_{simulation_index}"
+
+    # save snr list for documentation
+    snr_list_dir = base_dir / f"train_dir_{train_dir_index}/snr_list_dir"
     snr_list_dir.mkdir(parents=True, exist_ok=True)
 
     # Check if directories exist before processing
@@ -283,7 +283,7 @@ def main():
                     snr = micrograph_file.split("_")[-1].split(".")
                     snr = snr[0] + "." + snr[1]
                     snr_list.append(float(snr))
-    with (snr_list_dir / f"snr_list_{micrograph_index}.json").open("w") as file:
+    with (snr_list_dir / f"snr_list_{simulation_index}.json").open("w") as file:
         json.dump(snr_list, file)
 
     faket_paths = [p for p in base_dir_faket.glob("*.mrc")]
@@ -293,9 +293,9 @@ def main():
         # Sorting function
         sorted_tomograms_faket = sorted(faket_paths, key=lambda x: (int(x.name.split('_')[4]), int(x.name.split('_')[5].split('.')[0])))
         
-        source_dir = f"{base_dir}/reconstructed_tomograms_{micrograph_index}"
-        target_dir_faket = f"{base_dir}/train_directory_{train_dir_index}/static_{simulation_index}/ExperimentRuns_faket"
-        target_dir_basic = f"{base_dir}/train_directory_{train_dir_index}/static_{simulation_index}/ExperimentRuns_basic"
+        source_dir = f"{base_dir}/reconstructed_tomograms_{train_dir_index}"
+        target_dir_faket = f"{base_dir}/train_dir_{train_dir_index}/faket_tomograms"
+        target_dir_basic = f"{base_dir}/train_dir_{train_dir_index}/basic_tomograms"
         faket_paths = [str(p) for p in sorted_tomograms_faket]
         
         if not os.path.exists(target_dir_faket):
@@ -303,15 +303,18 @@ def main():
             reconstruct_micrographs_only_recon3D(TEM_paths, faket_paths, source_dir, snr_list, custom_mic=False, micrograph_threshold=100)
 
             print("\n=== Cleanup ===\n") 
-            # TODO what is the point of this
-            #transform_directory_structure(source_dir, target_dir_faket, target_dir_basic, copy_flag=False)
-            try:
-                shutil.rmtree(source_dir)
-                print(f"Successfully deleted the directory: {source_dir}\n")
-            except Exception as e:
-                print(f"Error deleting directory {source_dir}: {e}\n")
-    else:
-        print("No faket tomogram found.")
+
+            collect_results_to_train_dir(source_dir, target_dir_faket, target_dir_basic, simulation_index, copy_flag=False)
+            dirs_to_remove = [source_dir]
+
+            for dir in dirs_to_remove:
+                try:
+                    shutil.rmtree(dir)
+                    print(f"Successfully deleted the directory: {dir}\n")
+                except Exception as e:
+                    print(f"Error deleting directory {dir}: {e}\n")
+        else:
+            print("No faket tomogram found.")
 
 if __name__ == "__main__":
     main()

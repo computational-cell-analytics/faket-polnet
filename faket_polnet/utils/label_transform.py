@@ -153,7 +153,7 @@ def find_labels_table(simulation_dirs, filename="labels_table.csv"):
     raise FileNotFoundError(f"{filename} not found in any of the simulation directories.")
 
 
-def label_transform(in_csv_list, out_dir, csv_dir_list, labels_table,mapping_flag=True,simulation_threshold = 10):
+def label_transform(in_csv_list, out_dir, csv_dir_list, labels_table, simulation_index, mapping_flag=True):
     """
     Main function to split a CSV file by density tomograms, filter by Type, and convert to JSON.
 
@@ -178,8 +178,8 @@ def label_transform(in_csv_list, out_dir, csv_dir_list, labels_table,mapping_fla
         mapping = None   
     # Create the output directory if it doesn't exist
     os.makedirs(out_dir, exist_ok=True)
-    simulation_index = 0
-    for in_csv,csv_dir in zip(in_csv_list,csv_dir_list):
+    
+    for in_csv, csv_dir in zip(in_csv_list, csv_dir_list):
         # Create a directory for the CSV files if it doesn't exist
         os.makedirs(csv_dir, exist_ok=True)
         # Load the input CSV file into a DataFrame
@@ -204,11 +204,9 @@ def label_transform(in_csv_list, out_dir, csv_dir_list, labels_table,mapping_fla
             csv_file_path = os.path.join(csv_dir, f'{density_csv}.csv')  # Specify the file name
             group.to_csv(csv_file_path, sep='\t', index=False)          
             # Create a JSON directory for each CSV file    
-            json_output_dir = os.path.join(out_dir,"ExperimentRuns", f"tomogram_{simulation_index}_{density}","Picks")
+            json_output_dir = os.path.join(out_dir, f"tomogram_{simulation_index}_{density}")
             
-            csv_to_json(csv_file_path, json_output_dir, labels_table,mapping=mapping)
-        simulation_index += 1
-        print(f"Simulation {simulation_index} processed.")
-        if simulation_index >= simulation_threshold:
-            break
-    print("Successfully terminated all simulations.")
+            csv_to_json(csv_file_path, json_output_dir, labels_table, mapping=mapping)
+
+    
+    print(f"Performed label transform for simulation {simulation_index}.")

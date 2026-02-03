@@ -13,7 +13,7 @@ import time
 
 
 
-def project_micrographs(out_base_dir, simulation_dirs, tilt_range=(-60, 60, 3), detector_snr=None, micrograph_threshold=100, reconstruct_3d=False,add_misalignment = False,simulation_threshold=1,ax="Y",cluster_run = False):
+def project_content_micrographs(out_base_dir, simulation_dirs, tilt_range=(-60, 60, 3), detector_snr=None, micrograph_threshold=100, reconstruct_3d=False, add_misalignment = False, simulation_threshold=1, ax="Y",cluster_run = False):
     """
     Project micrographs from 3D densities and save all TEM-related files in the output directory.
 
