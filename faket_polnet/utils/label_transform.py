@@ -48,7 +48,7 @@ def csv_to_json(csv_file, json_directory, labels_table,mapping=None):
     get_name = lambda x: x.split("/")[1].split(".")[0]
     code_to_protein = {k: get_name(v) for k, v in code_to_protein.items()}  # Convert keys to strings
     # Filter rows where Type is either 'SAWCL' or 'Mb-SAWLC'
-    df_filtered = df[df['Type'].isin(['SAWLC', 'Mb-SAWLC'])]
+    df_filtered = df[df['Type'].isin(['Helix', 'SAWLC', 'Mb-SAWLC'])]
 
     # Group by the 'Code' column to create separate JSON files for each protein
     grouped = df_filtered.groupby('Label')
@@ -161,7 +161,6 @@ def label_transform(in_csv_list, out_dir, csv_dir_list, labels_table, simulation
         in_csv_list (list): List of paths to the input CSV files.
         out_dir (str): Path to the output directory where split CSVs and JSON files will be saved.
         csv_dir_list (list): List of directories where split CSVs will be stored.
-        filter_types (list): List of Type values to filter by.
         labels_table (str): Path to the labels table CSV file.
     """
     if mapping_flag:

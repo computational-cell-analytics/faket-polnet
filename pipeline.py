@@ -129,7 +129,7 @@ def main():
     labels_table = find_labels_table(simulation_dirs)
 
     in_csv_list = sorted(get_tomos_motif_list_paths(simulation_base_dir))
-    out_dir = base_dir / f"train_dir_{train_dir_index}/overlay_{simulation_index}"
+    out_dir = base_dir / f"train_dir_{train_dir_index}/overlay"
     csv_dir_list = [Path(d) / "csv" for d in get_absolute_paths(simulation_base_dir)]
 
     # Handle style directory logic
@@ -152,16 +152,16 @@ def main():
 
     # Label transformation
     if not out_dir.exists():
-        label_transform(in_csv_list, out_dir, csv_dir_list, labels_table, simulation_index=simulation_index, mapping_flag=False)
+        label_transform(in_csv_list, out_dir, csv_dir_list, labels_table, simulation_index, mapping_flag=False)
     
     # Project content micrographs
     print("\n=== Simulation Micrograph Projection ===\n")
     content_mics_out_dir = micrographs_base_dir / f"content_micrographs_dir_{simulation_index}"
+    
     if not content_mics_out_dir.exists():
         snr_list = project_content_micrographs(
-            content_mics_out_dir, simulation_dirs, tilt_range=tilt_range,
-            detector_snr=detector_snr, micrograph_threshold=30, reconstruct_3d=False,
-            add_misalignment=True, simulation_threshold=1
+            content_mics_out_dir, simulation_dirs, tilt_range, detector_snr, simulation_index, 
+            micrograph_threshold=30, reconstruct_3d=False, add_misalignment=True, simulation_threshold=1
         )
 
     print("\n=== Style Transfer ===\n")    
@@ -300,13 +300,13 @@ def main():
         
         if not os.path.exists(target_dir_faket):
             reconstruct_micrographs_only_recon3D(TEM_paths, faket_paths, source_dir, snr_list, custom_mic=True, micrograph_threshold=100)
-            reconstruct_micrographs_only_recon3D(TEM_paths, faket_paths, source_dir, snr_list, custom_mic=False, micrograph_threshold=100)
+            #reconstruct_micrographs_only_recon3D(TEM_paths, faket_paths, source_dir, snr_list, custom_mic=False, micrograph_threshold=100)
 
             print("\n=== Cleanup ===\n") 
 
             collect_results_to_train_dir(source_dir, target_dir_faket, target_dir_basic, copy_flag=False)
-            #dirs_to_remove = [source_dir]
-            dirs_to_remove = []
+
+            dirs_to_remove = [source_dir, micrographs_base_dir, style_dir]
 
             for dir in dirs_to_remove:
                 try:

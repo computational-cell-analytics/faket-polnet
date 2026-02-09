@@ -13,9 +13,12 @@ import time
 
 
 
-def project_content_micrographs(out_base_dir, simulation_dirs, tilt_range=(-60, 60, 3), detector_snr=None, micrograph_threshold=100, reconstruct_3d=False, add_misalignment = False, simulation_threshold=1, ax="Y",cluster_run = False):
+def project_content_micrographs(out_base_dir, simulation_dirs, tilt_range=(-60, 60, 3), detector_snr=None, simulation_index=None,
+                                 micrograph_threshold=100, reconstruct_3d=False, add_misalignment = False, simulation_threshold=1, 
+                                 ax="Y", cluster_run = False):
     """
     Project micrographs from 3D densities and save all TEM-related files in the output directory.
+    # TODO pipeline.py is currently setup to processs one simulation directory at a time
 
     Parameters:
         out_base_dir (str): Directory to save the generated micrographs and TEM files.
@@ -28,9 +31,12 @@ def project_content_micrographs(out_base_dir, simulation_dirs, tilt_range=(-60, 
     MALIGN_MN = 1
     MALIGN_MX = 1.5
     MALIGN_SG = 0.2
-    simulation_index = 0
+    
+    if simulation_index is None:
+        simulation_index = 0
     micrograph_index = 0
     snr_list = []
+
     for sim_dir in sorted(simulation_dirs):
         if not os.path.exists(sim_dir):
             print(f"Simulation directory {sim_dir} does not exist. Skipping.")
@@ -121,7 +127,8 @@ def project_content_micrographs(out_base_dir, simulation_dirs, tilt_range=(-60, 
     print("Successfully projected micrographs for all simulations.")
     return snr_list
 
-def reconstruct_micrographs_only_recon3D(TEM_paths,faket_paths, out_base_dir,snr_list, simulation_index, custom_mic=False,micrograph_threshold=100, cluster_run=False):
+def reconstruct_micrographs_only_recon3D(TEM_paths,faket_paths, out_base_dir,snr_list, custom_mic=False,
+                                         micrograph_threshold=100, cluster_run=False):
     os.makedirs(out_base_dir, exist_ok=True)
     
     micrograph_index = 0
@@ -161,9 +168,9 @@ def reconstruct_micrographs_only_recon3D(TEM_paths,faket_paths, out_base_dir,snr
             print(f"Error during reconstruction: {e}")
             continue
         if custom_mic:
-            out_tomo_rec = os.path.join(tomo_output_dir, f"tomo_rec_{micrograph_index}_faket.mrc")
+            out_tomo_rec = os.path.join(tomo_output_dir, f"{tomogram_id}_faket.mrc")
         else:
-            out_tomo_rec = os.path.join(tomo_output_dir, f"tomo_rec_{micrograph_index}_{snr}.mrc")
+            out_tomo_rec = os.path.join(tomo_output_dir, f"{tomogram_id}_{snr}.mrc")
         if not os.path.exists(temic._TEM__rec3d_file):
             print(f"Reconstruction failed. Output file {temic._TEM__rec3d_file} not found.")
             continue
@@ -179,7 +186,8 @@ def reconstruct_micrographs_only_recon3D(TEM_paths,faket_paths, out_base_dir,snr
             break
     print("Reconstruction completed for all micrographs.")
 
-def project_style_micrographs(style_tomo_dir, out_base_dir, tilt_range=(-60, 60, 3),ax = "Y",cluster_run = False,invert_density=False,projection_threshold = 1):
+def project_style_micrographs(style_tomo_dir, out_base_dir, tilt_range=(-60, 60, 3), ax = "Y", 
+                              cluster_run = False, invert_density=False,projection_threshold = 1):
     """
     Project style micrographs from reconstructed tomograms.
 
