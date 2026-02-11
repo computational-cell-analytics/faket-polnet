@@ -1,6 +1,6 @@
 #!/bin/bash
 ################################################################################
-# Batch submit polnet-faket integrated pipeline jobs for multiple configuration files.
+# Batch submit integrated polnet-faket pipeline jobs for multiple configuration files.
 #
 # Description:
 #   This script iterates over all TOML configuration files in a directory and
