@@ -40,6 +40,8 @@ def parse_args():
     #parser.add_argument('--faket_index', type=int, default=0, help='Faket index')
     parser.add_argument('--train_dir_index', type=int, default=0, help='Train directory index')
     #parser.add_argument('--static_index', type=int, default=0, help='Static index')
+    parser.add_argument('--czii_dir_structure', action='store_true', default=False, 
+                        help='Match training directory structure to CZII challenge data.')
     
     # Tilt range parameters
     parser.add_argument('--tilt_start', type=int, default=-60, help='Tilt series start angle')
@@ -106,6 +108,7 @@ def main():
     #faket_index = args.faket_index
     train_dir_index = args.train_dir_index
     #static_index = args.static_index
+    czii_dir_structure = args.czii_dir_structure
     tilt_range = (args.tilt_start, args.tilt_stop + 1, args.tilt_step)
     detector_snr = args.detector_snr
     denoised = args.denoised
@@ -152,7 +155,10 @@ def main():
 
     # Label transformation
     if not out_dir.exists():
-        label_transform(in_csv_list, out_dir, csv_dir_list, labels_table, simulation_index, mapping_flag=False)
+        if czii_dir_structure:
+            label_transform(in_csv_list, out_dir, csv_dir_list, labels_table, simulation_index, mapping_flag=True)
+        else:
+            label_transform(in_csv_list, out_dir, csv_dir_list, labels_table, simulation_index, mapping_flag=False)
     
     # Project content micrographs
     print("\n=== Simulation Micrograph Projection ===\n")
@@ -294,6 +300,7 @@ def main():
         sorted_tomograms_faket = sorted(faket_paths, key=lambda x: (int(x.name.split('_')[4]), int(x.name.split('_')[5].split('.')[0])))
         
         source_dir = f"{base_dir}/reconstructed_tomograms_{train_dir_index}"
+
         target_dir_faket = f"{base_dir}/train_dir_{train_dir_index}/faket_tomograms"
         target_dir_basic = f"{base_dir}/train_dir_{train_dir_index}/basic_tomograms"
         faket_paths = [str(p) for p in sorted_tomograms_faket]
@@ -304,7 +311,10 @@ def main():
 
             print("\n=== Cleanup ===\n") 
 
-            collect_results_to_train_dir(source_dir, target_dir_faket, target_dir_basic, copy_flag=False)
+            if czii_dir_structure:
+                collect_results_to_train_dir(source_dir, target_dir_faket, czii_dir_structure = True)
+            else: 
+                collect_results_to_train_dir(source_dir, target_dir_faket)
 
             dirs_to_remove = [source_dir, micrographs_base_dir, style_dir]
 

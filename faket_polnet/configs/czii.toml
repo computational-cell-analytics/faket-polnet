@@ -1,5 +1,6 @@
 [tool.polnet]
 out_dir = "/mnt/lustre-grete/projects/nim00020/sage/data/simulation/testing/czii"
+seed = 0
 ntomos = 3
 voi_vsize = 10 
 voi_shape = [630, 630, 184]
@@ -23,10 +24,13 @@ disable_helix = true
 [tool.faket]
 base_dir = "/mnt/lustre-grete/projects/nim00020/sage/data/testing/czii"
 simulation_index = 0
+train_dir_index = 0
+czii_directory_structure = True
 detector_snr = [0.15, 0.20]
 tilt_start = -60
 tilt_stop = 60
 tilt_step = 3
+
 
 
 
