@@ -44,9 +44,9 @@ Before running the pipeline, set up your directory structure as follows:
 base_directory/
 ├── simulation_dir_<simulation_index>/     # Simulation data (Required, from polnet)
 ├── style_tomograms_<style_index>/         # Style tomograms for projection (Required)
-├── style_micrographs_0/                   # Projected style micrographs (auto-created)
-├── micrograph_directory_0/                # Output directories (auto-created)
-├── train_directory_<train_dir_index>/     # Training data (auto-created)
+├── style_micrographs_<style_index>/       # Projected style micrographs (auto-created)
+├── micrograph_dir_<simulation_index>/     # Output directories (auto-created)
+├── train_dir_<train_dir_index>/           # Training data (auto-created)
 ```
 
 ## Usage
@@ -77,6 +77,7 @@ Running the pipeline using the following:
 ```bash
 python pipeline.py /path/to/your/base_directory
 ```
+
 ### Running the Pipeline with Configuration Files
 The pipeline.py has been setup to work with TOML configuration files. An example config file can be found at configs/czii.toml. 
 
@@ -118,7 +119,7 @@ python pipeline.py /path/to/config.toml
 1. **Directory Validation**: Checks for required simulation and style directories
 2. **Style Micrograph Projection**: Projects style tomograms to micrographs (if needed)
 3. **Label Transformation**: Processes simulation labels for training
-4. **Micrograph Projection**: Generates clean and noisy micrographs from simulations
+4. **Content Micrograph Projection**: Generates clean and noisy micrographs from simulations
 5. **Style Transfer**: Applies neural style transfer using faket
 6. **Reconstruction**: Reconstructs tomograms from style-transferred micrographs
 7. **Data Organization**: Prepares final training dataset structure
