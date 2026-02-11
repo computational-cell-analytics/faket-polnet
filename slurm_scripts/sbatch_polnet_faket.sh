@@ -10,11 +10,11 @@
 #   2) faket: add noise using style transfer
 #
 # Usage:
-#   sbatch sbatch_polnet_faket_config.sh <config.toml>
+#   sbatch sbatch_polnet_faket.sh <config.toml>
 #
 # Resources requested:
 #   Partition: grete:interactive
-#   Walltime: 8:00:00 if membranes enabled
+#   Walltime: 6:00:00 if membranes enabled
 #             1:30:00 if membranes disabled
 #   Nodes: 1
 #   CPUs per task: 8
@@ -25,7 +25,7 @@
 #SBATCH -p grete:interactive
 #SBATCH --job-name=JOB_NAME
 #SBATCH -o data/simulation/slurm_logs/slurm-%j_%x.out
-#SBATCH -t 8:00:00
+#SBATCH -t 6:00:00
 #SBATCH --nodes=1
 #SBATCH --cpus-per-task=8
 #SBATCH --mem=40G
