@@ -1,21 +1,38 @@
 ####################################################################
-# faketGPU CONDA ENVIRONMENT (approx 8.9GB in size)
-# GPU dependencies for FakET
-# Not for reproducing the paper, only for running a simulation
+# faketGPU Conda Environment (modified for cryo-ET simulation pipeline)
+# Approx size: ~9 GB
+#
+# Original environment from: 
+#   https://github.com/paloha/faket/blob/master/environment-gpu.yml
+# Modified by: Sage Martineau
+# Date modified: 11-02-2026
+#
+# Purpose:
+#   GPU-enabled environment for noise addition with FakET style transfer, 
+#   adapted for cryo-ET simulation pipeline with PolNet.
+
 ####################################################################
-# TESTED ON: 16.04.2024
-# OS Version: Ubuntu 20.04.6 LTS
-# NVIDIA Driver Version: 550.54.15
-# CUDA Version: 12.4
-# GPU Model: NVIDIA A100-SXM4 40GB
-# CPU: Dual AMD EPYC 7742 64-Core Processor (2x64 cores)
+# TESTED ON:
+#   Driver Version: 570.211.01
+#   CUDA Version: 12.8
+#   GPU: NVIDIA A100-SXM4 40GB
+#   Python: 3.11.8
+#
 ####################################################################
-# NOTES ON PACKAGE VERSIONS
-#  Here we provide the newest currently available packages
+# MODIFICATIONS FROM ORIGINAL faketGPU:
+#    - numpy
+#    - pandas
+#    - scikit-learn
+#    - toml
+#
+#   Versions pinned for reproducibility on HPC.
+#
+####################################################################
+# NOTES:
 #  PyTorch will warn about depricated "pretrained" param but its OK
 ####################################################################
 
-name: faketGPU
+name: faket-gpu
 channels:
   - nvidia
   - conda-forge 
@@ -27,12 +44,13 @@ dependencies:
   - pytorch::torchvision=0.17.1
   - conda-forge::mrcfile=1.5.0
   - scikit-image=0.22.0
-  - numpy
-  - pandas
-  - scikit-learn
+  - numpy=1.26.4
+  - pandas=2.3.3
+  - scikit-learn=1.8.0
   - matplotlib=3.8.0
   - pillow=10.2.0
   - tqdm=4.65.0
   - pip>=23.3
   - pip:
+    - toml=0.10.2
     - radontea==0.4.9 # Not strictly necessary unless you want to reconstruct 3D volumes
