@@ -52,5 +52,5 @@ dependencies:
   - tqdm=4.65.0
   - pip>=23.3
   - pip:
-    - toml=0.10.2
+    - toml==0.10.2
     - radontea==0.4.9 # Not strictly necessary unless you want to reconstruct 3D volumes
