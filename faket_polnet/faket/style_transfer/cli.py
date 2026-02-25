@@ -96,7 +96,7 @@ def get_safe_scale(w, h, dim):
 def setup_exceptions():
     try:
         from IPython.core.ultratb import FormattedTB
-        sys.excepthook = FormattedTB(mode='Plain', color_scheme='Neutral')
+        sys.excepthook = FormattedTB(mode='Plain')
     except ImportError:
         pass
 
