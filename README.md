@@ -73,18 +73,9 @@ The faket-polnet pipeline requires IMOD to be available on your `PATH`.
  - For local systems, this means installing IMOD and ensuring its binaries are discoverable. 
  - For HPC systems, IMOD is typically provided via an environment module and can be loaded inside the job script.
 
-Running the pipeline using the following:
+Run the pipeline using the following:
 ```bash
 python pipeline.py /path/to/your/base_directory
-```
-
-### Running the Pipeline with Configuration Files
-The pipeline.py has been setup to work with TOML configuration files. An example config file can be found at configs/czii.toml. 
-
-An example SLURM submission script can be found at slurm_scripts/sbatch_polnet_faket.sh. 
-
-```bash
-python pipeline.py /path/to/config.toml
 ```
 
 ### Parameters
