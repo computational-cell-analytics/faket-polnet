@@ -307,7 +307,7 @@ def main():
             else: 
                 collect_results_to_train_dir(source_dir, target_dir_faket)
 
-            dirs_to_remove = [source_dir, micrographs_base_dir, style_dir]
+            dirs_to_remove = [source_dir, micrographs_base_dir]
 
             for dir in dirs_to_remove:
                 try:
