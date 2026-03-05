@@ -33,12 +33,10 @@ def parse_args():
                         help='Base directory containing simulation and style directories')
     
     # Index parameters
-    #parser.add_argument('--micrograph_index', type=int, default=0, help='Micrograph index')
+    parser.add_argument('--micrograph_index', type=int, default=0, help='Micrograph index')
     parser.add_argument('--style_index', type=int, default=0, help='Style index')
     parser.add_argument('--simulation_index', type=int, default=0, help='Simulation index')
-    #parser.add_argument('--faket_index', type=int, default=0, help='Faket index')
     parser.add_argument('--train_dir_index', type=int, default=0, help='Train directory index')
-    #parser.add_argument('--static_index', type=int, default=0, help='Static index')
     parser.add_argument('--czii_dir_structure', action='store_true', default=False, 
                         help='Match training directory structure to CZII challenge data.')
     
@@ -100,12 +98,10 @@ def main():
     simulation_dir, style_tomo_dir, style_dir, style_tomo_exists, style_dir_exists = validate_directories(base_dir, args.simulation_index, args.style_index)
     
     # Set parameters from arguments
-    #micrograph_index = args.micrograph_index
+    micrograph_index = args.micrograph_index
     style_index = args.style_index
     simulation_index = args.simulation_index
-    #faket_index = args.faket_index
     train_dir_index = args.train_dir_index
-    #static_index = args.static_index
     czii_dir_structure = args.czii_dir_structure
     tilt_range = (args.tilt_start, args.tilt_stop + 1, args.tilt_step)
     detector_snr = args.detector_snr
@@ -135,7 +131,7 @@ def main():
 
     # Handle style directory logic
     print("\n=== Style Micrograph Projection ===\n")
-    micrographs_base_dir = base_dir / f"micrograph_dir_{simulation_index}"
+    micrographs_base_dir = base_dir / f"micrograph_dir_{micrograph_index}"
     style_mics_out_dir = micrographs_base_dir / f"style_micrographs_{style_index}"
 
     if style_dir_exists:
@@ -155,8 +151,6 @@ def main():
     if not out_dir.exists():
         if czii_dir_structure:
             label_transform(in_csv_list, out_dir, csv_dir_list, labels_table, simulation_index, mapping_flag=True)
-        else:
-            label_transform(in_csv_list, out_dir, csv_dir_list, labels_table, simulation_index, mapping_flag=False)
     
     # Project content micrographs
     print("\n=== Simulation Micrograph Projection ===\n")
@@ -305,7 +299,6 @@ def main():
         
         if not os.path.exists(target_dir_faket):
             reconstruct_micrographs_only_recon3D(TEM_paths, faket_paths, source_dir, snr_list, custom_mic=True, micrograph_threshold=100)
-            #reconstruct_micrographs_only_recon3D(TEM_paths, faket_paths, source_dir, snr_list, custom_mic=False, micrograph_threshold=100)
 
             print("\n=== Cleanup ===\n") 
 
