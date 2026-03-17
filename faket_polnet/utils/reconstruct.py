@@ -14,7 +14,7 @@ import time
 
 
 def project_content_micrographs(out_base_dir, simulation_dirs, tilt_range=(-60, 60, 3), detector_snr=None, simulation_index=None,
-                                 micrograph_threshold=100, reconstruct_3d=False, add_misalignment = False, simulation_threshold=1, 
+                                 micrograph_threshold=1000, reconstruct_3d=False, add_misalignment = False, simulation_threshold=1, 
                                  ax="Y", cluster_run = False):
     """
     Project micrographs from 3D densities and save all TEM-related files in the output directory.
@@ -128,7 +128,7 @@ def project_content_micrographs(out_base_dir, simulation_dirs, tilt_range=(-60, 
     return snr_list
 
 def reconstruct_micrographs_only_recon3D(TEM_paths,faket_paths, out_base_dir,snr_list, custom_mic=False,
-                                         micrograph_threshold=100, cluster_run=False):
+                                         micrograph_threshold=1000, cluster_run=False):
     os.makedirs(out_base_dir, exist_ok=True)
     
     micrograph_index = 0
@@ -186,8 +186,8 @@ def reconstruct_micrographs_only_recon3D(TEM_paths,faket_paths, out_base_dir,snr
             break
     print("Reconstruction completed for all micrographs.")
 
-def project_style_micrographs(style_tomo_dir, out_base_dir, tilt_range=(-60, 60, 3), ax = "Y", 
-                              cluster_run = False, invert_density=False,projection_threshold = 1):
+def project_style_micrographs(style_tomo_dir, out_base_dir, tilt_range=(-60, 60, 3), ax="Y",
+                              cluster_run=False, invert_density=False, projection_threshold=1):
     """
     Project style micrographs from reconstructed tomograms.
 

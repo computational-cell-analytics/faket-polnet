@@ -159,7 +159,7 @@ def main():
     if not content_mics_out_dir.exists():
         snr_list = project_content_micrographs(
             content_mics_out_dir, simulation_dirs, tilt_range, detector_snr, simulation_index, 
-            micrograph_threshold=30, reconstruct_3d=False, add_misalignment=True, simulation_threshold=1
+            micrograph_threshold=100, reconstruct_3d=False, add_misalignment=True, simulation_threshold=1
         )
 
     print("\n=== Style Transfer ===\n")    
@@ -294,7 +294,6 @@ def main():
         source_dir = f"{base_dir}/reconstructed_tomograms_{train_dir_index}"
 
         target_dir_faket = f"{base_dir}/train_dir_{train_dir_index}/faket_tomograms"
-        target_dir_basic = f"{base_dir}/train_dir_{train_dir_index}/basic_tomograms"
         faket_paths = [str(p) for p in sorted_tomograms_faket]
         
         if not os.path.exists(target_dir_faket):
