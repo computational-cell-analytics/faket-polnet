@@ -33,12 +33,17 @@ def parse_args():
                         help='Base directory containing simulation and style directories')
     
     # Index parameters
-    parser.add_argument('--micrograph_index', type=int, default=0, help='Micrograph index')
-    parser.add_argument('--style_index', type=int, default=0, help='Style index')
-    parser.add_argument('--simulation_index', type=int, default=0, help='Simulation index')
-    parser.add_argument('--train_dir_index', type=int, default=0, help='Train directory index')
+    parser.add_argument('--micrograph_index', type=int, default=0, 
+                        help='Micrograph index. Corresponds to intermediate drirectories,'
+                        'should match `train_dir_index`.')
+    parser.add_argument('--style_index', type=int, default=0, 
+                        help='Style index. Corresponds to the style tomograms.')
+    parser.add_argument('--simulation_index', type=int, default=0, 
+                        help='Simulation index. Corresponds to the PolNet simulation.')
+    parser.add_argument('--train_dir_index', type=int, default=0, 
+                        help='Train directory index')
     parser.add_argument('--czii_dir_structure', action='store_true', default=False, 
-                        help='Match training directory structure to CZII challenge data.')
+                        help='Match training directory structure to CZII challenge format.')
     
     # Tilt range parameters
     parser.add_argument('--tilt_start', type=int, default=-60, help='Tilt series start angle')
