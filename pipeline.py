@@ -1,12 +1,10 @@
-import sys
 import os
 import json
 import subprocess
-import time
 import numpy as np
 import shutil
 import ssl
-import pandas as pd
+import mrcfile
 import configargparse
 from pathlib import Path
 from ast import literal_eval
@@ -34,7 +32,7 @@ def parse_args():
     
     # Index parameters
     parser.add_argument('--micrograph_index', type=int, default=0, 
-                        help='Micrograph index. Corresponds to intermediate drirectories,'
+                        help='Micrograph index. Handles intermediate directories,'
                         'should match `train_dir_index`.')
     parser.add_argument('--style_index', type=int, default=0, 
                         help='Style index. Corresponds to the style tomograms.')
@@ -186,6 +184,15 @@ def main():
         print(f"No clean tomograms found in {CLEAN_DIR}")
         return
     
+    # automatically set `faket_end_scale` based on the spatial dims of the content tomograms
+    if faket_end_scale is None:
+        with mrcfile.open(clean_tomograms[0], permissive=True) as mrc:
+            _, H, W = mrc.data.shape
+            faket_end_scale = int(max(H, W))
+            print("Automatically set faket_end_scale to {faket_end_scale}.")
+
+    # build dict to store selected style and snr
+    json_dict = {}
     for CLEAN_TOMOGRAM in clean_tomograms:
         TOMOGRAM_DIR = CLEAN_TOMOGRAM.split('/')[-2]
         CLEAN_ID = CLEAN_TOMOGRAM.split('_')[-1].replace('.mrc', '')
@@ -206,26 +213,32 @@ def main():
             STYLE_TOMOGRAM_CMD = f"find {STYLE_DIR} -name '*.mrc' | head -n 1"
             STYLE_TOMOGRAM = subprocess.run(STYLE_TOMOGRAM_CMD, shell=True, capture_output=True, text=True).stdout.strip()
 
+        json_dict[TOMOGRAM_DIR] = {
+            "snr": float(Path(NOISY_TOMOGRAM).stem.rsplit('_', 1)[-1]),
+            "style": Path(STYLE_TOMOGRAM).name.replace('_style_mics.mrc', '')
+        }
+
         OUTPUT_TOMOGRAM = f"{OUTPUT_DIR}/tomo_style_transfer_{TOMOGRAM_DIR}.mrc"
         print(f"Output Tomogram: {OUTPUT_TOMOGRAM}")
-        
+
         if os.path.exists(OUTPUT_TOMOGRAM):
             print(f"Output tomogram already exists, skipping: {OUTPUT_TOMOGRAM}")
             continue
             
         print(f"Processing: Clean={CLEAN_TOMOGRAM}, Noisy={NOISY_TOMOGRAM}, Style={STYLE_TOMOGRAM}")
 
+        # TODO changed to original faket parameters
         # build extra_args dict
         extra_args = {
             "init": NOISY_TOMOGRAM,
             "seq_start": 0,
             "seq_end": seq_end,
-            "content-weight": 1.0,
-            "tv-weight": 0,
-            "initial-iterations": 1,
-            "step-size": faket_step_size,
+            "content-weight": 0.015, # content weight 1
+            "tv-weight": 2, # tv_weight 0
+            "initial-iterations": 1000, # initial-iterations 1
+            "step-size": 0.02, # faket_step_size 0.15
             "avg-decay": 0.99,
-            "style-scale-fac": 1.0, 
+            "style-scale-fac": 1.0,
             "pooling": "max",
             "content_layers": 8,
             "content_layers_weights": 100,
@@ -237,12 +250,12 @@ def main():
             style_paths=[STYLE_TOMOGRAM],
             output_path=OUTPUT_TOMOGRAM,
             devices=[f"cuda:{faket_gpu}"],
-            iterations=faket_iterations,
+            iterations=500,
             save_every=5,
             min_scale=faket_min_scale,
             end_scale=faket_end_scale,
             random_seed=0,
-            style_weights=[1.0],            
+            style_weights=[1.0],
             extra_args=extra_args,
         )
 
@@ -252,9 +265,12 @@ def main():
     base_dir_TEM = content_mics_out_dir / "TEM"
     base_dir_faket = micrographs_base_dir / f"faket_micrographs_{simulation_index}"
 
-    # save snr list for documentation
+    # save styles and snr for documentation
     snr_list_dir = base_dir / f"train_dir_{train_dir_index}/snr_list_dir"
     snr_list_dir.mkdir(parents=True, exist_ok=True)
+
+    with (snr_list_dir / f"snr_list_{simulation_index}.json").open("w") as file:
+        json.dump(json_dict, file, indent=4)
 
     # Check if directories exist before processing
     if not base_dir_TEM.exists() or not base_dir_Micrographs.exists():
@@ -278,17 +294,6 @@ def main():
     print(f"Micrograph Paths: {[Micrograph_paths]}")
     print(f"TEM Paths: {[TEM_paths]}")
 
-    snr_list = []
-    for path in Micrograph_paths:
-        if os.path.exists(path):
-            for micrograph_file in os.listdir(path):
-                if micrograph_file.split("_")[-2] != "clean":
-                    snr = micrograph_file.split("_")[-1].split(".")
-                    snr = snr[0] + "." + snr[1]
-                    snr_list.append(float(snr))
-    with (snr_list_dir / f"snr_list_{simulation_index}.json").open("w") as file:
-        json.dump(snr_list, file)
-
     faket_paths = [p for p in base_dir_faket.glob("*.mrc")]
 
     print("\n=== Tomogram Reconstruction ===\n") 
@@ -311,7 +316,8 @@ def main():
             else: 
                 collect_results_to_train_dir(source_dir, target_dir_faket)
 
-            dirs_to_remove = [source_dir, micrographs_base_dir]
+            #dirs_to_remove = [source_dir, micrographs_base_dir]
+            dirs_to_remove = []
 
             for dir in dirs_to_remove:
                 try:
