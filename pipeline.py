@@ -227,7 +227,6 @@ def main():
             
         print(f"Processing: Clean={CLEAN_TOMOGRAM}, Noisy={NOISY_TOMOGRAM}, Style={STYLE_TOMOGRAM}")
 
-        # TODO changed to original faket parameters
         # build extra_args dict
         extra_args = {
             "init": NOISY_TOMOGRAM,
@@ -250,7 +249,7 @@ def main():
             style_paths=[STYLE_TOMOGRAM],
             output_path=OUTPUT_TOMOGRAM,
             devices=[f"cuda:{faket_gpu}"],
-            iterations=500,
+            iterations=faket_iterations,
             save_every=5,
             min_scale=faket_min_scale,
             end_scale=faket_end_scale,
@@ -316,8 +315,7 @@ def main():
             else: 
                 collect_results_to_train_dir(source_dir, target_dir_faket)
 
-            #dirs_to_remove = [source_dir, micrographs_base_dir]
-            dirs_to_remove = []
+            dirs_to_remove = [source_dir, micrographs_base_dir]
 
             for dir in dirs_to_remove:
                 try:
