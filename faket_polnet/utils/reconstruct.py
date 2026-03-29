@@ -126,7 +126,7 @@ def project_content_micrographs(out_base_dir, simulation_dir, tilt_range=(-60, 6
     print("Successfully projected micrographs.")
     return snr
 
-def reconstruct_micrographs_only_recon3D(TEM_path, faket_path, out_base_dir, snr, custom_mic=False,
+def reconstruct_micrographs_only_recon3D(TEM_path, faket_path, out_base_dir, snr=None, custom_mic=False,
                                          cluster_run=False):
     os.makedirs(out_base_dir, exist_ok=True)
 
