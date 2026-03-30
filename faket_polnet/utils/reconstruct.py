@@ -105,9 +105,14 @@ def project_content_micrographs(out_base_dir, simulation_dir, tilt_range=(-60, 6
         else:
             print("No detector noise added.")
 
+        # convert noisy content to black-on-white contrast
         temic.invert_mics_den()
         out_mics = os.path.join(tomo_output_dir, f"tomo_mics_{i}_{snr}.mrc")
         shutil.copyfile(os.path.join(tem_output_dir, "out_micrographs.mrc"), out_mics)
+
+        # convert clean content to black-on-white contrast
+        lio.write_mrc(-1 * lio.load_mrc(clean_mics_path), clean_mics_path)
+
         saved_micrograph = lio.load_mrc(out_mics)
         if saved_micrograph is not None:
             print(f"Saved micrograph shape: {saved_micrograph.shape}")
