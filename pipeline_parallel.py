@@ -55,7 +55,7 @@ def parse_args():
     # Faket parameters
     parser.add_argument('--faket_gpu', type=int, default=0, help='GPU device ID for faket')
     parser.add_argument('--faket_iterations', type=int, default=5, help='Number of iterations for faket style transfer')
-    parser.add_argument('--faket_step_size', type=float, default=0.15, help='Step size for faket')
+    parser.add_argument('--faket_step_size', type=float, default=0.02, help='Step size for faket')
     parser.add_argument('--faket_min_scale', type=int, default=128, help='Minimum scale for faket')
     parser.add_argument('--faket_end_scale', type=int, default=None, help='End scale for faket')
 
@@ -231,7 +231,7 @@ def run_style_transfer(tomo_index, args, base_dir, style_dir, faket_end_scale):
             output_path=OUTPUT_TOMOGRAM,
             devices=[f"cuda:{args.faket_gpu}"],
             iterations=args.faket_iterations,
-            save_every=5,
+            save_every=100,
             min_scale=args.faket_min_scale,
             end_scale=faket_end_scale,
             random_seed=0,

@@ -222,17 +222,19 @@ def main():
             print(f"Output tomogram already exists, skipping: {OUTPUT_TOMOGRAM}")
             continue
             
-        print(f"Processing: Clean={CLEAN_TOMOGRAM}, Noisy={NOISY_TOMOGRAM}, Style={STYLE_TOMOGRAM}")
-
+        print(f"Processing:"
+              f"\n  Clean: {CLEAN_TOMOGRAM}"
+              f"\n  Noisy: {NOISY_TOMOGRAM}"
+              f"\n  Style: {STYLE_TOMOGRAM}")
         # build extra_args dict
         extra_args = {
             "init": NOISY_TOMOGRAM,
             "seq_start": 0,
             "seq_end": seq_end,
-            "content-weight": 0.015, # content weight 1
-            "tv-weight": 2, # tv_weight 0
-            "initial-iterations": 1000, # initial-iterations 1
-            "step-size": 0.02, # faket_step_size 0.15
+            "content-weight": 0.015,
+            "tv-weight": 2,
+            "initial-iterations": 1000, 
+            "step-size": 0.02, 
             "avg-decay": 0.99,
             "style-scale-fac": 1.0,
             "pooling": "max",
@@ -247,7 +249,7 @@ def main():
             output_path=OUTPUT_TOMOGRAM,
             devices=[f"cuda:{faket_gpu}"],
             iterations=faket_iterations,
-            save_every=5,
+            save_every=100,
             min_scale=faket_min_scale,
             end_scale=faket_end_scale,
             random_seed=0,
