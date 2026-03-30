@@ -7,11 +7,9 @@ import ssl
 import mrcfile
 import configargparse
 from pathlib import Path
-from ast import literal_eval
-from faket_polnet.utils.utils import get_absolute_paths,check_mrc_files
-from faket_polnet.utils.reconstruct import project_content_micrographs,reconstruct_micrographs_only_recon3D,project_style_micrographs
-from faket_polnet.utils.utils import collect_results_to_train_dir, copy_style_micrographs, compare_tomograms
-from faket_polnet.utils.json import analyze_json_files, visualize_results, print_style_stats
+from faket_polnet.utils.utils import get_absolute_paths
+from faket_polnet.utils.reconstruct import project_content_micrographs, reconstruct_micrographs_only_recon3D, project_style_micrographs
+from faket_polnet.utils.utils import collect_results_to_train_dir, copy_style_micrographs
 from faket_polnet.utils.label_transform import label_transform, find_labels_table, get_tomos_motif_list_paths
 
 from faket_polnet.utils.faket_wrapper import style_transfer_wrapper
@@ -31,14 +29,13 @@ def parse_args():
                         help='Base directory containing simulation and style directories')
     
     # Index parameters
-    parser.add_argument('--micrograph_index', type=int, default=0, 
-                        help='Micrograph index. Handles intermediate directories,'
-                        'should match `train_dir_index`.')
-    parser.add_argument('--style_index', type=int, default=0, 
+    parser.add_argument('--micrograph_index', type=int, default=0,
+                        help='Micrograph index. Handles intermediate directories, should match `train_dir_index`.')
+    parser.add_argument('--style_index', type=int, default=0,
                         help='Style index. Corresponds to the style tomograms.')
-    parser.add_argument('--simulation_index', type=int, default=0, 
+    parser.add_argument('--simulation_index', type=int, default=0,
                         help='Simulation index. Corresponds to the PolNet simulation.')
-    parser.add_argument('--train_dir_index', type=int, default=0, 
+    parser.add_argument('--train_dir_index', type=int, default=0,
                         help='Train directory index')
     parser.add_argument('--czii_dir_structure', action='store_true', default=False, 
                         help='Match training directory structure to CZII challenge format.')
@@ -55,8 +52,8 @@ def parse_args():
     
     # Faket parameters
     parser.add_argument('--faket_gpu', type=int, default=0, help='GPU device ID for faket')
-    parser.add_argument('--faket_iterations', type=int, default=5, help='Number of iterations for faket style transfer')
-    parser.add_argument('--faket_step_size', type=float, default=0.15, help='Step size for faket')
+    parser.add_argument('--faket_iterations', type=int, default=500, help='Number of iterations for faket style transfer')
+    parser.add_argument('--faket_step_size', type=float, default=0.02, help='Step size for faket')
     parser.add_argument('--faket_min_scale', type=int, default=128, help='Minimum scale for faket')
     parser.add_argument('--faket_end_scale', type=int, default=None, help='End scale for faket')
     
@@ -110,7 +107,7 @@ def main():
     detector_snr = args.detector_snr
     denoised = args.denoised
     random_faket = args.random_faket
-    
+
     # Faket parameters
     faket_gpu = args.faket_gpu
     faket_iterations = args.faket_iterations
@@ -160,9 +157,9 @@ def main():
     content_mics_out_dir = micrographs_base_dir / f"content_micrographs_{simulation_index}"
     
     if not content_mics_out_dir.exists():
-        snr_list = project_content_micrographs(
-            content_mics_out_dir, simulation_dirs, tilt_range, detector_snr, simulation_index, 
-            micrograph_threshold=100, reconstruct_3d=False, add_misalignment=True, simulation_threshold=1
+        project_content_micrographs(
+            content_mics_out_dir, simulation_dir, tilt_range, detector_snr, simulation_index,
+            reconstruct_3d=False, add_misalignment=True
         )
 
     print("\n=== Style Transfer ===\n")    
@@ -189,7 +186,7 @@ def main():
         with mrcfile.open(clean_tomograms[0], permissive=True) as mrc:
             _, H, W = mrc.data.shape
             faket_end_scale = int(max(H, W))
-            print("Automatically set faket_end_scale to {faket_end_scale}.")
+            print(f"Automatically set faket_end_scale to {faket_end_scale}.")
 
     # build dict to store selected style and snr
     json_dict = {}
@@ -283,30 +280,21 @@ def main():
     TEM_paths = [str(p) for p in tomograms_sorted]
 
 
-    Micrographs_sorted = sorted(
-        base_dir_Micrographs.iterdir(),
-        key=lambda x: (int(x.name.split('_')[1]), int(x.name.split('_')[2]))
-        )
-    Micrograph_paths = [str(p) for p in Micrographs_sorted]
-
-
-    print(f"Micrograph Paths: {[Micrograph_paths]}")
     print(f"TEM Paths: {[TEM_paths]}")
 
-    faket_paths = [p for p in base_dir_faket.glob("*.mrc")]
+    faket_paths = list(base_dir_faket.glob("*.mrc"))
 
-    print("\n=== Tomogram Reconstruction ===\n") 
+    print("\n=== Tomogram Reconstruction ===\n")
     if faket_paths:
-        # Sorting function
-        sorted_tomograms_faket = sorted(faket_paths, key=lambda x: (int(x.name.split('_')[4]), int(x.name.split('_')[5].split('.')[0])))
-        
-        source_dir = f"{base_dir}/reconstructed_tomograms_{train_dir_index}"
+        faket_paths = sorted(faket_paths, key=lambda x: (int(x.name.split('_')[4]), int(x.name.split('_')[5].split('.')[0])))
+        faket_paths = [str(p) for p in faket_paths]
 
+        source_dir = f"{base_dir}/reconstructed_tomograms_{train_dir_index}"
         target_dir_faket = f"{base_dir}/train_dir_{train_dir_index}/faket_tomograms"
-        faket_paths = [str(p) for p in sorted_tomograms_faket]
         
         if not os.path.exists(target_dir_faket):
-            reconstruct_micrographs_only_recon3D(TEM_paths, faket_paths, source_dir, snr_list, custom_mic=True, micrograph_threshold=100)
+            for TEM_path, faket_path in zip(TEM_paths, faket_paths):
+                reconstruct_micrographs_only_recon3D(TEM_path, faket_path, source_dir, custom_mic=True)
 
             print("\n=== Cleanup ===\n") 
 
