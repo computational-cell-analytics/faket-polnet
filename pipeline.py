@@ -292,27 +292,24 @@ def main():
         source_dir = f"{base_dir}/reconstructed_tomograms_{train_dir_index}"
         target_dir_faket = f"{base_dir}/train_dir_{train_dir_index}/faket_tomograms"
         
-        if not os.path.exists(target_dir_faket):
-            for TEM_path, faket_path in zip(TEM_paths, faket_paths):
-                reconstruct_micrographs_only_recon3D(TEM_path, faket_path, source_dir, custom_mic=True)
+        for TEM_path, faket_path in zip(TEM_paths, faket_paths):
+            reconstruct_micrographs_only_recon3D(TEM_path, faket_path, source_dir, custom_mic=True)
 
-            print("\n=== Cleanup ===\n") 
+        print("\n=== Cleanup ===\n")
 
-            if czii_dir_structure:
-                collect_results_to_train_dir(source_dir, target_dir_faket, czii_dir_structure = True)
-            else: 
-                collect_results_to_train_dir(source_dir, target_dir_faket)
-
-            dirs_to_remove = [source_dir, micrographs_base_dir]
-
-            for dir in dirs_to_remove:
-                try:
-                    shutil.rmtree(dir)
-                    print(f"Successfully deleted the directory: {dir}\n")
-                except Exception as e:
-                    print(f"Error deleting directory {dir}: {e}\n")
+        if czii_dir_structure:
+            collect_results_to_train_dir(source_dir, target_dir_faket, czii_dir_structure = True)
         else:
-            print("No faket tomogram found.")
+            collect_results_to_train_dir(source_dir, target_dir_faket)
+
+        dirs_to_remove = [source_dir, micrographs_base_dir]
+
+        for dir in dirs_to_remove:
+            try:
+                shutil.rmtree(dir)
+                print(f"Successfully deleted the directory: {dir}\n")
+            except Exception as e:
+                print(f"Error deleting directory {dir}: {e}\n")
 
 if __name__ == "__main__":
     main()
