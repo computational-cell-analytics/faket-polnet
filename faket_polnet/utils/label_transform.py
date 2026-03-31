@@ -5,6 +5,7 @@ import os
 from tqdm import tqdm
 import sys
 import os
+from pathlib import Path
 import numpy as np
 import shutil
 import random
@@ -87,7 +88,7 @@ def csv_to_json(csv_file, json_directory, labels_table,mapping=None):
             x = float(row['X'])
             y = float(row['Y'])
             z = float(row['Z'])
-            instance_id = int(row['Label'])  # Use Label as instance_id
+            instance_id = int(row['Polymer'])
             q1 = float(row['Q1'])
             q2 = float(row['Q2'])
             q3 = float(row['Q3'])
@@ -114,23 +115,19 @@ def csv_to_json(csv_file, json_directory, labels_table,mapping=None):
 
 def get_tomos_motif_list_paths(master_dir):
     """
-    Get the absolute paths of 'tomos_motif_list.csv' from all subdirectories in a master directory.
-    
+    Get the absolute paths of tomo_motif_list_*.csv files from the simulation directory.
+ther
     Parameters:
-        master_dir (str): Path to the master directory containing subdirectories.
-    
+        master_dir (str): Path to the simulation directory containing `motif_lists` directory.
+
     Returns:
-        list: A list of absolute paths to 'tomos_motif_list.csv' files in each subdirectory.
+        list: Sorted list of absolute paths to tomo_motif_list_*.csv files.
     """
-    motif_paths = []
-    
-    # Iterate through all subdirectories in the master directory
-    for subdir, _, files in os.walk(master_dir):
-        if 'tomos_motif_list.csv' in files:
-            # Construct the absolute path for the csv file
-            motif_paths.append(os.path.abspath(os.path.join(subdir, 'tomos_motif_list.csv')))
-    
-    return motif_paths
+    csv_dir = Path(master_dir) / "motif_lists"
+    if not csv_dir.exists():
+        raise FileNotFoundError(f"`motif_lists` directory not found in {master_dir}.")
+
+    return sorted(csv_dir.glob("tomo_motif_list_*.csv"))
 
 
 def find_labels_table(simulation_dirs, filename="labels_table.csv"):
@@ -153,15 +150,16 @@ def find_labels_table(simulation_dirs, filename="labels_table.csv"):
     raise FileNotFoundError(f"{filename} not found in any of the simulation directories.")
 
 
-def label_transform(in_csv_list, out_dir, csv_dir_list, labels_table, simulation_index, mapping_flag=True):
+def label_transform(in_csv_list, out_dir, labels_table, simulation_index, mapping_flag=True):
     """
-    Main function to split a CSV file by density tomograms, filter by Type, and convert to JSON.
+    Convert tomo_motif_list_*.csv files directly to JSON annotation files.
 
     Parameters:
-        in_csv_list (list): List of paths to the input CSV files.
-        out_dir (str): Path to the output directory where split CSVs and JSON files will be saved.
-        csv_dir_list (list): List of directories where split CSVs will be stored.
+        in_csv_list (list): List of paths to the input tomo_motif_list_*.csv files.
+        out_dir (str): Path to the output directory where JSON files will be saved.
         labels_table (str): Path to the labels table CSV file.
+        simulation_index (int): Simulation index used to name output tomogram directories.
+        mapping_flag (bool): If True, apply protein name mapping.
     """
     if mapping_flag:
         mapping = {
@@ -174,38 +172,14 @@ def label_transform(in_csv_list, out_dir, csv_dir_list, labels_table, simulation
             "8vaf_10A": "albumin"
                 }
     else:
-        mapping = None   
-    # Create the output directory if it doesn't exist
+        mapping = None
+
     os.makedirs(out_dir, exist_ok=True)
-    
-    for in_csv, csv_dir in zip(in_csv_list, csv_dir_list):
-        # Create a directory for the CSV files if it doesn't exist
-        os.makedirs(csv_dir, exist_ok=True)
-        # Load the input CSV file into a DataFrame
-        df = pd.read_csv(in_csv, sep='\t')
-        df = df.drop(columns=['Tomo3D', 'Micrographs'], errors='ignore')
-        
-        # Group the DataFrame by the 'Density' column
-        grouped = df.groupby('Density')
 
-        # Iterate over each group and save to a separate CSV file
-        for density, group in tqdm(grouped):
-            density_csv = density.split("/")[-1].split(".")[0]
-            density = density.split("/")[-1].split(".")[0].split("_")[-1]
-            # Check if the density is empty or None
-            if density == None or density == "":
-                continue
-            # Filter by 'Type' column if it exists
-            """if 'Type' in group.columns:
-                group = group[group['Type'].isin(filter_types)]"""
-            # Construct the output file path
-            
-            csv_file_path = os.path.join(csv_dir, f'{density_csv}.csv')  # Specify the file name
-            group.to_csv(csv_file_path, sep='\t', index=False)          
-            # Create a JSON directory for each CSV file    
-            json_output_dir = os.path.join(out_dir, f"tomogram_{simulation_index}_{density}")
-            
-            csv_to_json(csv_file_path, json_output_dir, labels_table, mapping=mapping)
+    for in_csv in in_csv_list:
+        tomo_index = os.path.splitext(os.path.basename(in_csv))[0].split('_')[-1]
+        json_output_dir = os.path.join(out_dir, f"tomogram_{simulation_index}_{tomo_index}")
+        csv_to_json(str(in_csv), json_output_dir, labels_table, mapping=mapping)
+        print(f"Label transform complete for tomogram_{simulation_index}_{tomo_index}.")
 
-    
     print(f"Performed label transform for simulation {simulation_index}.")

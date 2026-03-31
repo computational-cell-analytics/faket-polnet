@@ -7,7 +7,6 @@ import ssl
 import mrcfile
 import configargparse
 from pathlib import Path
-from faket_polnet.utils.utils import get_absolute_paths
 from faket_polnet.utils.reconstruct import project_content_micrographs, reconstruct_micrographs_only_recon3D, project_style_micrographs
 from faket_polnet.utils.utils import collect_results_to_train_dir, copy_style_micrographs
 from faket_polnet.utils.label_transform import label_transform, find_labels_table, get_tomos_motif_list_paths
@@ -125,9 +124,8 @@ def main():
     simulation_dirs = [simulation_base_dir]
     labels_table = find_labels_table(simulation_dirs)
 
-    in_csv_list = sorted(get_tomos_motif_list_paths(simulation_base_dir))
+    in_csv_list = get_tomos_motif_list_paths(simulation_base_dir)
     out_dir = base_dir / f"train_dir_{train_dir_index}/overlay"
-    csv_dir_list = [Path(d) / "csv" for d in get_absolute_paths(simulation_base_dir)]
 
     # Handle style directory logic
     print("\n=== Style Micrograph Projection ===\n")
@@ -150,7 +148,7 @@ def main():
     # Label transformation
     if not out_dir.exists():
         if czii_dir_structure:
-            label_transform(in_csv_list, out_dir, csv_dir_list, labels_table, simulation_index, mapping_flag=True)
+            label_transform(in_csv_list, out_dir, labels_table, simulation_index, mapping_flag=True)
     
     # Project content micrographs
     print("\n=== Simulation Micrograph Projection ===\n")

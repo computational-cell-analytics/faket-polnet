@@ -8,7 +8,7 @@ import mrcfile
 import configargparse
 from pathlib import Path
 from faket_polnet.utils.reconstruct import project_content_micrographs, reconstruct_micrographs_only_recon3D, project_style_micrographs
-from faket_polnet.utils.utils import get_absolute_paths, collect_results_to_train_dir, copy_style_micrographs
+from faket_polnet.utils.utils import collect_results_to_train_dir, copy_style_micrographs
 from faket_polnet.utils.label_transform import label_transform, find_labels_table, get_tomos_motif_list_paths
 
 from faket_polnet.utils.faket_wrapper import style_transfer_wrapper
@@ -118,9 +118,8 @@ def run_setup(args, base_dir, style_dir, style_tomo_dir, style_tomo_exists, styl
     if not out_dir.exists():
         if args.czii_dir_structure:
             labels_table = find_labels_table([simulation_base_dir])
-            in_csv_list = sorted(get_tomos_motif_list_paths(simulation_base_dir))
-            csv_dir_list = [Path(d) / "csv" for d in get_absolute_paths(simulation_base_dir)]
-            label_transform(in_csv_list, out_dir, csv_dir_list, labels_table,
+            in_csv_list = get_tomos_motif_list_paths(simulation_base_dir)
+            label_transform(in_csv_list, out_dir, labels_table,
                             args.simulation_index, mapping_flag=True)
     else:
         print("Overlay directory already exists, skipping label transformation.")
