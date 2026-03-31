@@ -229,6 +229,95 @@ def compare_tomograms(tomo1_path, tomo2_path,MSE= True,SSIM = True):
     plt.tight_layout()
     plt.show()
 
+def compare_intensity_distributions(tomo1_path, tomo2_path, bins=256, figsize=(14, 5)):
+    """
+    Compare pixel intensity distributions of two tomograms via:
+      - Summary statistics table (mean, std, min, max, percentiles)
+      - Normalized histogram overlay
+      - Radially-averaged power spectrum comparison
+
+    The two tomograms do not need to have the same shape or content — this function
+    operates on distributions and frequency characteristics, not pixel-wise correspondence.
+    Intended for assessing style transfer quality (e.g. style tomogram vs faket output).
+
+    Parameters:
+        tomo1_path (str): Path to the first tomogram (e.g., style tomogram).
+        tomo2_path (str): Path to the second tomogram (e.g., style-transferred tomogram).
+        bins (int): Number of histogram bins.
+        figsize (tuple): Figure size for the plot.
+    """
+    with mrcfile.open(tomo1_path, permissive=True) as mrc:
+        tomo1 = np.copy(mrc.data).astype(np.float32)
+    with mrcfile.open(tomo2_path, permissive=True) as mrc:
+        tomo2 = np.copy(mrc.data).astype(np.float32)
+
+    name1 = Path(tomo1_path).stem
+    name2 = Path(tomo2_path).stem
+
+    # Summary statistics
+    def stats(arr):
+        return {
+            "mean":  arr.mean(),
+            "std":   arr.std(),
+            "min":   arr.min(),
+            "p5":    np.percentile(arr, 5),
+            "p25":   np.percentile(arr, 25),
+            "p50":   np.percentile(arr, 50),
+            "p75":   np.percentile(arr, 75),
+            "p95":   np.percentile(arr, 95),
+            "max":   arr.max(),
+        }
+
+    s1, s2 = stats(tomo1), stats(tomo2)
+    print(f"\n{'Statistic':<10} {name1:>25} {name2:>25}")
+    print("-" * 62)
+    for key in s1:
+        print(f"{key:<10} {s1[key]:>25.4f} {s2[key]:>25.4f}")
+
+    # Radially-averaged power spectrum
+    def radial_avg_power_spectrum(arr):
+        f = np.fft.fftn(arr)
+        ps = np.abs(np.fft.fftshift(f)) ** 2
+        center = np.array(ps.shape) // 2
+        z, y, x = np.indices(ps.shape)
+        r = np.sqrt(
+            (z - center[0]) ** 2 + (y - center[1]) ** 2 + (x - center[2]) ** 2
+        ).astype(int)
+        r_max = int(min(center))
+        return np.array([ps[r == ri].mean() for ri in range(r_max)])
+
+    # Plots
+    fig, axes = plt.subplots(1, 2, figsize=figsize)
+
+    # Histogram
+    ax = axes[0]
+    all_vals = np.concatenate([tomo1.ravel(), tomo2.ravel()])
+    vmin, vmax = np.percentile(all_vals, 1), np.percentile(all_vals, 99)
+    ax.hist(tomo1.ravel(), bins=bins, range=(vmin, vmax), density=True,
+            alpha=0.6, label=name1, color="steelblue")
+    ax.hist(tomo2.ravel(), bins=bins, range=(vmin, vmax), density=True,
+            alpha=0.6, label=name2, color="coral")
+    ax.set_xlabel("Intensity")
+    ax.set_ylabel("Density")
+    ax.set_title("Intensity Distribution")
+    ax.legend()
+
+    # Power spectrum
+    ax = axes[1]
+    print("\nComputing radially-averaged power spectra...")
+    rps1 = radial_avg_power_spectrum(tomo1)
+    rps2 = radial_avg_power_spectrum(tomo2)
+    ax.semilogy(np.arange(len(rps1)) / len(rps1), rps1, label=name1, color="steelblue")
+    ax.semilogy(np.arange(len(rps2)) / len(rps2), rps2, label=name2, color="coral")
+    ax.set_xlabel("Spatial frequency (cycles/voxel)")
+    ax.set_ylabel("Power (log scale)")
+    ax.set_title("Radially-Averaged Power Spectrum")
+    ax.legend()
+
+    plt.tight_layout()
+    plt.show()
+
+
 def copy_style_micrographs(source_dir, destination_dir,copy_flag = False):
     """
     Traverse the source directory, find style micrograph files, and copy them to the destination directory.
