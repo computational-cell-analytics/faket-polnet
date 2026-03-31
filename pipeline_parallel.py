@@ -54,7 +54,7 @@ def parse_args():
     
     # Faket parameters
     parser.add_argument('--faket_gpu', type=int, default=0, help='GPU device ID for faket')
-    parser.add_argument('--faket_iterations', type=int, default=5, help='Number of iterations for faket style transfer')
+    parser.add_argument('--faket_iterations', type=int, default=500, help='Number of iterations for faket style transfer')
     parser.add_argument('--faket_step_size', type=float, default=0.02, help='Step size for faket')
     parser.add_argument('--faket_min_scale', type=int, default=128, help='Minimum scale for faket')
     parser.add_argument('--faket_end_scale', type=int, default=None, help='End scale for faket')
