@@ -127,6 +127,15 @@ def main():
     in_csv_list = get_tomos_motif_list_paths(simulation_base_dir)
     out_dir = base_dir / f"train_dir_{train_dir_index}/overlay"
 
+    # Auto-set faket_end_scale from simulation tomogram dims before style projection
+    if faket_end_scale is None:
+        tomo_den = simulation_dir / "tomos" / "tomo_den_0.mrc"
+        if tomo_den.exists():
+            with mrcfile.open(str(tomo_den), permissive=True) as mrc:
+                Z, H, W = mrc.data.shape
+                faket_end_scale = int(max(H, W))
+                print(f"Automatically set faket_end_scale to {faket_end_scale}.")
+
     # Handle style directory logic
     print("\n=== Style Micrograph Projection ===\n")
     micrographs_base_dir = base_dir / f"micrograph_dir_{micrograph_index}"
@@ -138,7 +147,7 @@ def main():
         # Only run projection if style_tomo_dir exists and style_dir doesn't exist
         print("Style tomogram directory found but style directory doesn't exist. Running projection...")
         style_mics_out_dir.mkdir(parents=True, exist_ok=True)
-        project_style_micrographs(style_tomo_dir, style_mics_out_dir, tilt_range=tilt_range, ax="Y", cluster_run=False, projection_threshold=100)
+        project_style_micrographs(style_tomo_dir, style_mics_out_dir, tilt_range=tilt_range, ax="Y", cluster_run=False, projection_threshold=100, target_size=faket_end_scale)
         copy_style_micrographs(style_mics_out_dir, style_dir, copy_flag=False)
         print(f"Style projection completed and copied to: {style_dir}")
     else:
@@ -179,13 +188,6 @@ def main():
         print(f"No clean tomograms found in {CLEAN_DIR}")
         return
     
-    # automatically set `faket_end_scale` based on the spatial dims of the content tomograms
-    if faket_end_scale is None:
-        with mrcfile.open(clean_tomograms[0], permissive=True) as mrc:
-            _, H, W = mrc.data.shape
-            faket_end_scale = int(max(H, W))
-            print(f"Automatically set faket_end_scale to {faket_end_scale}.")
-
     # build dict to store selected style and snr
     json_dict = {}
     for CLEAN_TOMOGRAM in clean_tomograms:

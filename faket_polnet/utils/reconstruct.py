@@ -180,7 +180,8 @@ def reconstruct_micrographs_only_recon3D(TEM_path, faket_path, out_base_dir, snr
     print(f"Reconstruction completed in {time.time() - hold_time:.2f} seconds.")
 
 def project_style_micrographs(style_tomo_dir, out_base_dir, tilt_range=(-60, 60, 3), ax="Y",
-                              cluster_run=False, invert_density=False, projection_threshold=1):
+                              cluster_run=False, invert_density=False, projection_threshold=1,
+                              target_size=None):
     """
     Project style micrographs from reconstructed tomograms.
 
@@ -202,6 +203,14 @@ def project_style_micrographs(style_tomo_dir, out_base_dir, tilt_range=(-60, 60,
         if vol is None or np.count_nonzero(vol) == 0:
             print(f"Skipping {filename}, empty or unreadable.")
             continue
+
+        # Center-crop XY to target_size if larger
+        if target_size is not None:
+            Z, Y, X = vol.shape
+            cy, cx = Y // 2, X // 2
+            h, w = min(Y, target_size), min(X, target_size)
+            vol = vol[:, cy - h//2 : cy + h//2, cx - w//2 : cx + w//2]
+            print(f"Center-cropped style tomogram to {vol.shape[1]}x{vol.shape[2]}.")
 
         # Create output folder for projections
         tomo_output_dir = os.path.join(out_base_dir, f"StyleMicrographs_{tomo_id}")

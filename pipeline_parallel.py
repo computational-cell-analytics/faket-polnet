@@ -88,7 +88,7 @@ def validate_directories(base_dir, simulation_index, style_index):
     
     return simulation_dir, style_tomo_dir, style_dir, style_tomo_exists, style_dir_exists
 
-def run_setup(args, base_dir, style_dir, style_tomo_dir, style_tomo_exists, style_dir_exists):
+def run_setup(args, base_dir, style_dir, style_tomo_dir, style_tomo_exists, style_dir_exists, faket_end_scale=None):
     """
     Stage 1: Setup (shared)
     - Project style micrographs
@@ -107,7 +107,8 @@ def run_setup(args, base_dir, style_dir, style_tomo_dir, style_tomo_exists, styl
         print("Style tomogram directory found but style directory doesn't exist. Running projection...")
         style_mics_out_dir.mkdir(parents=True, exist_ok=True)
         project_style_micrographs(style_tomo_dir, style_mics_out_dir, tilt_range=tilt_range,
-                                   ax="Y", cluster_run=False, projection_threshold=100)
+                                   ax="Y", cluster_run=False, projection_threshold=100,
+                                   target_size=faket_end_scale)
         copy_style_micrographs(style_mics_out_dir, style_dir, copy_flag=False)
         print(f"Style projection completed and copied to: {style_dir}")
     else:
@@ -319,7 +320,16 @@ def main():
     )
 
     if args.stage == 1:
-        run_setup(args, base_dir, style_dir, style_tomo_dir, style_tomo_exists, style_dir_exists)
+        faket_end_scale = args.faket_end_scale
+        if faket_end_scale is None:
+            tomo_den = simulation_dir / "tomos" / "tomo_den_0.mrc"
+            if tomo_den.exists():
+                with mrcfile.open(str(tomo_den), permissive=True) as mrc:
+                    _, H, W = mrc.data.shape
+                    faket_end_scale = int(max(H, W))
+                    print(f"Automatically set faket_end_scale to {faket_end_scale}.")
+        run_setup(args, base_dir, style_dir, style_tomo_dir, style_tomo_exists, style_dir_exists,
+                  faket_end_scale=faket_end_scale)
 
     elif args.stage == 2:
         tomo_index = int(os.environ.get("SLURM_ARRAY_TASK_ID"))
