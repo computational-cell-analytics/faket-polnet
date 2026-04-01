@@ -205,12 +205,13 @@ def project_style_micrographs(style_tomo_dir, out_base_dir, tilt_range=(-60, 60,
             continue
 
         # Center-crop XY to target_size if larger
+        # lio.load_mrc returns (X, Y, Z), so axes 0 and 1 are spatial
         if target_size is not None:
-            Z, Y, X = vol.shape
-            cy, cx = Y // 2, X // 2
-            h, w = min(Y, target_size), min(X, target_size)
-            vol = vol[:, cy - h//2 : cy + h//2, cx - w//2 : cx + w//2]
-            print(f"Center-cropped style tomogram to {vol.shape[1]}x{vol.shape[2]}.")
+            X, Y, Z = vol.shape
+            cx, cy = X // 2, Y // 2
+            w, h = min(X, target_size), min(Y, target_size)
+            vol = vol[cx - w//2 : cx + w//2, cy - h//2 : cy + h//2, :]
+            print(f"Center-cropped style tomogram to {vol.shape[0]}x{vol.shape[1]}x{vol.shape[2]}.")
 
         # Create output folder for projections
         tomo_output_dir = os.path.join(out_base_dir, f"StyleMicrographs_{tomo_id}")
