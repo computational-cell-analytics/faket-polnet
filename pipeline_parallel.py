@@ -295,7 +295,6 @@ def run_cleanup(args, base_dir):
     print("\n=== Removing intermediate directories ===\n")
     dirs_to_remove = [
         base_dir / f"micrograph_dir_{micrograph_index}",
-        base_dir / f"style_micrographs_{style_index}",
         base_dir / f"reconstructed_tomograms_{train_dir_index}",
     ]
     for dir in dirs_to_remove:
