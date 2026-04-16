@@ -249,10 +249,19 @@ def run_style_transfer(tomo_index, args, base_dir, style_dir, faket_end_scale):
     TEM_path = str(content_mics_out_dir / "TEM" / TOMOGRAM_DIR)
     source_dir = base_dir / f"reconstructed_tomograms_{train_dir_index}"
     source_dir.mkdir(parents=True, exist_ok=True)
+
+    print("--- Faket reconstruction ---")
     reconstruct_micrographs_only_recon3D(
         TEM_path, OUTPUT_TOMOGRAM, str(source_dir), snr,
         custom_mic=True,
     )
+
+    if args.czii_dir_structure:
+        print("--- Basic reconstruction (Gaussian SNR) ---")
+        reconstruct_micrographs_only_recon3D(
+            TEM_path, None, str(source_dir), snr,
+            custom_mic=False,
+        )
 
     print(f"Style transfer and reconstruction complete for Tomogram {tomo_index}.")
 
@@ -291,6 +300,12 @@ def run_cleanup(args, base_dir):
     target_dir_faket = str(base_dir / f"train_dir_{train_dir_index}/faket_tomograms")
     collect_results_to_train_dir(source_dir, target_dir_faket,
                                  czii_dir_structure=args.czii_dir_structure)
+
+    if args.czii_dir_structure:
+        print("\n=== Collecting basic tomograms (Gaussian SNR) ===\n")
+        target_dir_basic = str(base_dir / f"train_dir_{train_dir_index}/basic_tomograms")
+        collect_results_to_train_dir(source_dir, target_dir_basic,
+                                     czii_dir_structure=True, collect_faket=False)
 
     print("\n=== Removing intermediate directories ===\n")
     dirs_to_remove = [

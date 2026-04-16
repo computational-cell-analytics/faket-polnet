@@ -56,31 +56,39 @@ def transform_directory_structure(source_dir, target_dir_faket, target_dir_basic
                     shutil.move(source_file_path, new_file_path)
                 print(f"Moved (basic): {source_file_path} → {new_file_path}")
 
-def collect_results_to_train_dir(source_dir, target_dir_faket, copy_flag = False, czii_dir_structure = False):
+def collect_results_to_train_dir(source_dir, target_dir_faket, copy_flag=False,
+                                 czii_dir_structure=False, collect_faket=True):
     """
     Updated version of `transform_directory_structure`.
-    Collect faket tomogram files into the target directory. 
-    If `czii_dir_structure` is True, match the directory structure to CZII challenge data; 
-    otherwise create a flat structure in the target directory. 
+    Collect reconstructed tomogram files into the target directory.
+    If `czii_dir_structure` is True, match the directory structure to CZII challenge data;
+    otherwise create a flat structure in the target directory.
 
     Parameters:
         source_dir (str): Path to the source directory containing reconstructed tomograms.
-        target_dir_faket (str): Path to the target directory for faket tomograms.
+        target_dir_faket (str): Path to the target directory for collected tomograms.
         copy_flag (bool): If True, copy data to target directory; if False, move the data.
         czii_dir_structure (bool): If True, match directory structure to CZII challenge data.
+        collect_faket (bool): If True, collect only `_faket.mrc` files (default).
+            If False, collect all `.mrc` files that are not `_faket.mrc` (basic tomograms).
     """
     os.makedirs(target_dir_faket, exist_ok=True)
-    
-    folders = sorted(os.listdir(source_dir),key=lambda x: (int(x.split('_')[1]), int(x.split('_')[2])))
+
+    folders = sorted(os.listdir(source_dir),
+                     key=lambda x: (int(x.split('_')[1]), int(x.split('_')[2])))
 
     for folder in folders:
         folder_path = os.path.join(source_dir, folder)
         if not os.path.isdir(folder_path):
             continue
-        
+
         for file in os.listdir(folder_path):
-            if not file.endswith("_faket.mrc"):
-                continue 
+            if collect_faket:
+                if not file.endswith("_faket.mrc"):
+                    continue
+            else:
+                if not file.endswith(".mrc") or file.endswith("_faket.mrc"):
+                    continue
             source_file_path = os.path.join(folder_path, file)
 
             # Use the original folder name (e.g., tomogram_1_5) if `czii_dir_structure` is True
@@ -89,12 +97,13 @@ def collect_results_to_train_dir(source_dir, target_dir_faket, copy_flag = False
                 else os.path.join(target_dir_faket, file)
             )
             os.makedirs(os.path.dirname(target_file_path), exist_ok=True)
- 
+
             if copy_flag:
                 shutil.copy(source_file_path, target_file_path)
             else:
-                shutil.move(source_file_path, target_file_path)                
-                print(f"Moved (faket): {source_file_path} → {target_file_path}")
+                label = "faket" if collect_faket else "basic"
+                shutil.move(source_file_path, target_file_path)
+                print(f"Moved ({label}): {source_file_path} → {target_file_path}")
         
 
 def get_absolute_paths(parent_dir):
