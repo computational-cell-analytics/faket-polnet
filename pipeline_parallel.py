@@ -49,15 +49,18 @@ def parse_args():
     
     # Other parameters
     parser.add_argument('--detector_snr', type=float, nargs=2, default=[0.15, 0.20], help='Detector SNR range')
+    parser.add_argument('--smooth_sigma', type=float, default=0.0, help='Sigma for Gaussian smoothing applied to synthetic volume before projection. 0 disables.')
+    parser.add_argument('--lowpass', type=float, default=0.0, help='Lowpass filter frequency (A) applied to synhetic density.')
     parser.add_argument('--denoised', action='store_true', help='Use denoised style micrographs')
     parser.add_argument('--random_faket', action='store_true', default=True, help='Use random faket style transfer')
-    
+   
     # Faket parameters
     parser.add_argument('--faket_gpu', type=int, default=0, help='GPU device ID for faket')
     parser.add_argument('--faket_iterations', type=int, default=500, help='Number of iterations for faket style transfer')
     parser.add_argument('--faket_step_size', type=float, default=0.02, help='Step size for faket')
     parser.add_argument('--faket_min_scale', type=int, default=128, help='Minimum scale for faket')
     parser.add_argument('--faket_end_scale', type=int, default=None, help='End scale for faket')
+    parser.add_argument('--faket_content_weight', type=float, default=0.015, help='Content weight for faket style transfer')
 
     return parser.parse_args()
 
@@ -107,8 +110,7 @@ def run_setup(args, base_dir, style_dir, style_tomo_dir, style_tomo_exists, styl
         print("Style tomogram directory found but style directory doesn't exist. Running projection...")
         style_mics_out_dir.mkdir(parents=True, exist_ok=True)
         project_style_micrographs(style_tomo_dir, style_mics_out_dir, tilt_range=tilt_range,
-                                   ax="Y", cluster_run=False, projection_threshold=100,
-                                   target_size=faket_end_scale)
+                                   ax="Y", target_size=faket_end_scale)
         copy_style_micrographs(style_mics_out_dir, style_dir, copy_flag=False)
         print(f"Style projection completed and copied to: {style_dir}")
     else:
@@ -165,8 +167,8 @@ def run_style_transfer(tomo_index, args, base_dir, style_dir, faket_end_scale):
         snr = project_content_micrographs(
             content_mics_out_dir, simulation_base_dir,
             tilt_range, args.detector_snr, simulation_index,
-            micrograph_threshold=100, reconstruct_3d=False, add_misalignment=True,
-            tomo_index=tomo_index,
+            add_misalignment=True,
+            tomo_index=tomo_index, lowpass_res=args.lowpass,
         )
     else:
         print(f"Content micrographs already exist, skipping: {CLEAN_TOMOGRAM}")
@@ -214,7 +216,7 @@ def run_style_transfer(tomo_index, args, base_dir, style_dir, faket_end_scale):
             "init": NOISY_TOMOGRAM,
             "seq_start": 0,
             "seq_end": seq_end,
-            "content-weight": 0.015,
+            "content-weight": args.faket_content_weight,
             "tv-weight": 2,
             "initial-iterations": 1000,
             "step-size": args.faket_step_size,

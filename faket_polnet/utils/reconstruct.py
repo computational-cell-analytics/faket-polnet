@@ -5,17 +5,45 @@ import os
 from tqdm import tqdm
 import sys
 import numpy as np
+from scipy.ndimage import gaussian_filter
+import subprocess
+import mrcfile
 from .import lio
 from .import tem
 import shutil
 import random
 import time
 
+def relion_lowpass(input_path, output_path, lowpass_res):
+    """
+    Apply RELION lowpass frequency filter to synthetic tomogram density. 
 
+    Parameters:
+        input_path (str): Path to input mrc file. 
+        output_path (str): Path to output mrc file. 
+        lowpass_res (float): Lowpass filter frequency (A).
 
-def project_content_micrographs(out_base_dir, simulation_dir, tilt_range=(-60, 60, 3), detector_snr=None, simulation_index=None,
-                                 micrograph_threshold=1000, reconstruct_3d=False, add_misalignment=False,
-                                 ax="Y", cluster_run=False, tomo_index=None):
+    """
+    with mrcfile.open(input_path, permissive=True) as mrc: 
+        angpix = float(mrc.voxel_size.x)
+
+    if angpix <= 0:
+        raise ValueError(f"Pixel size not set in the mrc header of {input_path}, cannot apply lowpass filter.")
+    
+    cmd = (
+        f"relion_image_handler --i {input_path} --o {output_path} "
+        f"--angpix {angpix} --lowpass {lowpass_res}"
+    )
+    
+    print(f"Applying RELION lowpass filter ({lowpass_res}A)")
+    result = subprocess.run(cmd, shell=True, capture_output=True, text=True)
+
+    if result.returncode != 0: 
+        raise RuntimeError(f"`relion_image_handler` command failed: \nstdout: {result.stdout}\nstderr: {result.stderr}")     
+
+def project_content_micrographs(out_base_dir, simulation_dir, tilt_range=(-60, 60, 3), detector_snr=None,
+                                simulation_index=None, add_misalignment=False, ax="Y", tomo_index=None,
+                                sigma=0.0, lowpass_res=0.0):
     """
     Project micrographs from 3D densities and save all TEM-related files in the output directory.
 
@@ -24,8 +52,6 @@ def project_content_micrographs(out_base_dir, simulation_dir, tilt_range=(-60, 6
         simulation_dir (str): Simulation directory containing 3D densities.
         tilt_range (tuple): Range of tilt angles (start, stop, step).
         detector_snr (list or float, optional): Signal-to-noise ratio for adding noise to micrographs.
-        micrograph_threshold (int): Maximum number of micrographs to process.
-        reconstruct_3d (bool): Whether to perform 3D reconstruction.
         tomo_index (int, optional): If set, only project this specific tomogram index.
             Used for parallel array jobs where each task handles one tomogram.
 
@@ -38,7 +64,6 @@ def project_content_micrographs(out_base_dir, simulation_dir, tilt_range=(-60, 6
 
     if simulation_index is None:
         simulation_index = 0
-    micrograph_index = 0
     snr = None
 
     if not os.path.exists(simulation_dir):
@@ -50,13 +75,13 @@ def project_content_micrographs(out_base_dir, simulation_dir, tilt_range=(-60, 6
         return snr
 
     print(f"Processing simulation directory: {simulation_dir}")
-    tom_dir = os.path.join(simulation_dir, "tomos")
-    if not os.path.exists(tom_dir):
+    tomo_dir = os.path.join(simulation_dir, "tomos")
+    if not os.path.exists(tomo_dir):
         raise FileNotFoundError("Tomogram directory not found.")
 
-    tomogram_files = [f for f in os.listdir(tom_dir) if f.startswith("tomo_den_") and f.endswith(".mrc")]
+    tomogram_files = [f for f in os.listdir(tomo_dir) if f.startswith("tomo_den_") and f.endswith(".mrc")]
     n_tomos = len(tomogram_files)
-    print(f"Found {n_tomos} tomograms to process in {tom_dir}.")
+    print(f"Found {n_tomos} tomograms to process in {tomo_dir}.")
 
     for i in range(n_tomos):
         if tomo_index is not None and i != tomo_index:
@@ -65,7 +90,7 @@ def project_content_micrographs(out_base_dir, simulation_dir, tilt_range=(-60, 6
         print("PROJECTING MICROGRAPHS FOR TOMOGRAM NUMBER:", i)
         hold_time = time.time()
 
-        tomo_den_out = os.path.join(tom_dir, f"tomo_den_{i}.mrc")
+        tomo_den_out = os.path.join(tomo_dir, f"tomo_den_{i}.mrc")
         if not os.path.exists(tomo_den_out):
             raise FileNotFoundError(f"3D density file {tomo_den_out} is missing.")
 
@@ -78,18 +103,22 @@ def project_content_micrographs(out_base_dir, simulation_dir, tilt_range=(-60, 6
         os.makedirs(tomo_output_dir, exist_ok=True)
 
         temic = tem.TEM(tem_output_dir)
+        if lowpass_res > 0.0:
+            lowpass_path = os.path.join(tomo_dir, f"tomo_den_{i}_lowpass.mrc")
+            relion_lowpass(tomo_den_out, lowpass_path, lowpass_res)
+            tomo_den_out = lowpass_path
+
         vol = lio.load_mrc(tomo_den_out)
-        print(f"Loaded tomogram from {tomo_den_out} with shape {vol.shape}")
         if vol is None:
             raise ValueError(f"Failed to load 3D density file {tomo_den_out}.")
-        if np.count_nonzero(vol) == 0:
-            print(f"3D density file {tomo_den_out} is empty. Skipping.")
-            continue
+        print(f"Loaded tomogram from {tomo_den_out} with shape {vol.shape}")
 
-        if cluster_run:
-            temic.gen_tilt_series_imod_0(vol, np.arange(*tilt_range), ax=ax)
-        else:
-            temic.gen_tilt_series_imod(vol, np.arange(*tilt_range), ax=ax)
+        #TODO remove gaussian smoothing
+        if sigma > 0.0:
+            vol = gaussian_filter(vol.astype(np.float32), sigma=sigma)
+            print(f"Applied Gaussian smoothing with sigma={sigma}.")
+
+        temic.gen_tilt_series_imod(vol, np.arange(*tilt_range), ax=ax)
 
         clean_mics_path = os.path.join(tomo_output_dir, f"tomo_mics_clean_{i}.mrc")
         shutil.copyfile(temic._TEM__micgraphs_file, clean_mics_path)
@@ -118,21 +147,12 @@ def project_content_micrographs(out_base_dir, simulation_dir, tilt_range=(-60, 6
             print(f"Saved micrograph shape: {saved_micrograph.shape}")
         else:
             print(f"Failed to load saved micrograph from {out_mics}")
-        if reconstruct_3d:
-            temic.recon3D_imod()
-            temic.set_header(data="rec3d", p_size=(10, 10, 10), origin=(0, 0, 0))
         print(f"Micrographs for tomogram {i} projected in {time.time() - hold_time:.2f} seconds.")
-        micrograph_index += 1
-        print(f"Micrograph {micrograph_index} saved to {out_mics}.")
-        if micrograph_index >= micrograph_threshold:
-            print(f"Micrograph index {micrograph_index} exceeds threshold. Stopping further processing.")
-            break
 
     print("Successfully projected micrographs.")
     return snr
 
-def reconstruct_micrographs_only_recon3D(TEM_path, faket_path, out_base_dir, snr=None, custom_mic=False,
-                                         cluster_run=False):
+def reconstruct_micrographs_only_recon3D(TEM_path, faket_path, out_base_dir, snr=None, custom_mic=False):
     os.makedirs(out_base_dir, exist_ok=True)
 
     if not os.path.exists(TEM_path):
@@ -158,10 +178,7 @@ def reconstruct_micrographs_only_recon3D(TEM_path, faket_path, out_base_dir, snr
     print("Output file:", temic._TEM__rec3d_file)
 
     try:
-        if cluster_run:
-            temic.recon3D_imod_0()
-        else:
-            temic.recon3D_imod()
+        temic.recon3D_imod()
     except Exception as e:
         print(f"Error during reconstruction: {e}")
         return
@@ -180,8 +197,7 @@ def reconstruct_micrographs_only_recon3D(TEM_path, faket_path, out_base_dir, snr
     print(f"Reconstruction completed in {time.time() - hold_time:.2f} seconds.")
 
 def project_style_micrographs(style_tomo_dir, out_base_dir, tilt_range=(-60, 60, 3), ax="Y",
-                              cluster_run=False, invert_density=False, projection_threshold=1,
-                              target_size=None):
+                              invert_density=False, target_size=None):
     """
     Project style micrographs from reconstructed tomograms.
 
@@ -192,8 +208,7 @@ def project_style_micrographs(style_tomo_dir, out_base_dir, tilt_range=(-60, 60,
     """
     os.makedirs(out_base_dir, exist_ok=True)
     style_tomo_files = [f for f in os.listdir(style_tomo_dir) if f.endswith('.mrc')]
-    projection_count = 0
-    for i, filename in enumerate(sorted(style_tomo_files)):
+    for filename in sorted(style_tomo_files):
         tomo_path = os.path.join(style_tomo_dir, filename)
         tomo_id = os.path.splitext(filename)[0]
         print(f"Processing style tomogram: {tomo_path}")
@@ -219,17 +234,10 @@ def project_style_micrographs(style_tomo_dir, out_base_dir, tilt_range=(-60, 60,
 
         # Use TEM object to simulate tilt series (no noise, no misalignment)
         temic = tem.TEM(tomo_output_dir)
-        if cluster_run:
-            temic.gen_tilt_series_imod_0(vol, np.arange(*tilt_range), ax=ax)
-        else:
-            temic.gen_tilt_series_imod(vol, np.arange(*tilt_range), ax=ax)
+        temic.gen_tilt_series_imod(vol, np.arange(*tilt_range), ax=ax)
         if invert_density:
             temic.invert_mics_den()
         # Save the style micrographs (no noise)
         style_mics_out = os.path.join(tomo_output_dir, f"{tomo_id}_style_mics.mrc")
         shutil.copyfile(temic._TEM__micgraphs_file, style_mics_out)
         print(f"Saved style projections to {style_mics_out}")
-        projection_count += 1
-        if projection_count > projection_threshold:
-            print("Projection threshold has been reached ")
-            break

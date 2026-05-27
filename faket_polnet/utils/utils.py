@@ -354,7 +354,7 @@ def copy_style_micrographs(source_dir, destination_dir,copy_flag = False):
                     shutil.move(source_file_path, destination_file_path)
                     print(f"Moved: {source_file_path} → {destination_file_path}")
 
-def check_mrc_files(directory,file_threshold = 5):
+def check_mrc_files(directory, file_threshold=5):
     """Scans a directory for MRC files and prints their shape and size."""
     mrc_files = [f for f in os.listdir(directory) if f.endswith(".mrc")]
     

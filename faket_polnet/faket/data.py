@@ -152,13 +152,15 @@ def match_mean_std(vol1, vol2=None, means=None, stds=None):
     return vol1 
     
 
-def normalize(x):
+def normalize(x, lower=1.0, upper=99.0, eps=1e-7):
     """
-    Shifts and scales an array into [0, 1]
+    Shifts and scales an array into [0, 1] using percentile normalization.
     """
-    x = x.copy()
-    x -= x.min()
-    x /= x.max()
+    x = x.copy().astype(np.float32)
+    v_lower = np.percentile(x, lower)
+    v_upper = np.percentile(x, upper) - v_lower
+    x -= v_lower
+    x /= (v_upper + eps)
     return x
 
 

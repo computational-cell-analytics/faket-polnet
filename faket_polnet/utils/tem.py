@@ -130,68 +130,6 @@ class TEM:
             raise IOError
 
     
-    def gen_tilt_series_imod_0(self, vol, angs, ax="X", mode="real"):
-        """
-        Generates the 2D projection series from a 3D volume using 'xyzproj' IMOD binary
-
-        :param vol: input 3D volume
-        :param angs: non-empty iterable with the tilt angles or a range
-        :param ax: tilt axis, either 'X', 'Y' or 'Z' (default 'X')
-        :param mode: mode of output file, valid: 'byte', 'int' or 'real' (default)
-        """
-
-        # Input parsing
-        assert isinstance(vol, np.ndarray) and (len(vol.shape) == 3)
-        assert hasattr(angs, "__len__") and (len(angs) > 0)
-        assert (ax == "X") or (ax == "Y") or (ax == "Z")
-        assert (mode == "byte") or (mode == "int") or (mode == "real")
-
-        # Call to IMOD binary (xyzproj)
-        xyzproj_cmd = [IMOD_CMD_XYZPROJ]
-        
-        # Save input volume to temp file
-        lio.write_mrc(vol, self.__vol_file)
-        xyzproj_cmd += ["-inp", self.__vol_file]
-        xyzproj_cmd += ["-o", self.__micgraphs_file]
-        xyzproj_cmd += ["-ax", ax]
-        
-        # Handle tilt angles
-        if isinstance(angs, range):
-            xyzproj_cmd += ["-an", f"{angs.start},{angs.stop},{angs.step}"]
-        else:
-            xyzproj_cmd += ["-ta", ",".join(map(str, angs))]
-        
-        # Handle mode
-        mode_map = {"byte": "0", "int": "1", "real": "2"}
-        xyzproj_cmd += ["-m", mode_map[mode]]
-
-        # Set up IMOD environment
-        env = os.environ.copy()
-        env["PATH"] = (
-            "/sw/rev/25.04/skylake_rocky8/linux-rocky8-skylake_avx512/gcc-14.2.0/"
-            "imod-5.1.0-tycs5f2u64sp3g2y3ruccwnqmr2jsgz6/bin:" + env["PATH"]
-        )
-        env["IMOD_DIR"] = "/sw/rev/25.04/skylake_rocky8/linux-rocky8-skylake_avx512/gcc-14.2.0/imod-5.1.0-tycs5f2u64sp3g2y3ruccwnqmr2jsgz6"
-
-        # Command calling
-        try:
-            with open(self.__log_file, "a") as file_log:
-                file_log.write(
-                    "\n["
-                    + time.strftime("%c")
-                    + "] RUNNING COMMAND: "
-                    + " ".join(xyzproj_cmd)
-                    + "\n"
-                )
-                subprocess.call(xyzproj_cmd, stdout=file_log, stderr=file_log, env=env)
-            self.__save_tangs_file(angs)
-        except subprocess.CalledProcessError as e:
-            print(f"ERROR: Error calling the command: {xyzproj_cmd}\nError: {e}")
-            raise
-        except IOError as e:
-            print(f"ERROR: Log file could not be written: {self.__log_file}\nError: {e}")
-            raise
-    
     def add_detector_noise(self, snr):
         """
         Add detector noise to micrographs. Readout noise has Gaussian distribution and dark current is typically
@@ -262,62 +200,6 @@ class TEM:
         # Flip Z-axis
         lio.write_mrc(np.flip(hold_rec, axis=2), self.__rec3d_file)
     
-    def recon3D_imod_0(self, thick=None):
-        """
-        Performs a 3D reconstruction from the tilted series micrograph using 'tilt' IMOD binary
-        :param thick: (optional) to enable a tomogram thickness (along Z-axis) different from the original density.
-        """
-
-        # Call to IMOD binary (tilt)
-
-        # Building the command
-        tilt_cmd = [IMOD_CMD_TILT]
-        vol = lio.load_mrc(self.__vol_file, mmap=True, no_saxes=False)
-        tilt_cmd += ["-inp", self.__micgraphs_file]
-        tilt_cmd += ["-output", self.__rec3d_file]
-        tilt_cmd += ["-TILTFILE", self.__tangs_file]
-        if thick is None:
-            tilt_cmd += ["-THICKNESS", str(vol.shape[0])]
-        else:
-            assert thick > 0
-            tilt_cmd += ["-THICKNESS", str(thick)]
-
-        # Set up IMOD environment (same as in working example)
-        env = os.environ.copy()
-        env["PATH"] = (
-            "/sw/rev/25.04/skylake_rocky8/linux-rocky8-skylake_avx512/gcc-14.2.0/"
-            "imod-5.1.0-tycs5f2u64sp3g2y3ruccwnqmr2jsgz6/bin:" + env["PATH"]
-        )
-        env["IMOD_DIR"] = "/sw/rev/25.04/skylake_rocky8/linux-rocky8-skylake_avx512/gcc-14.2.0/imod-5.1.0-tycs5f2u64sp3g2y3ruccwnqmr2jsgz6"
-
-        # Command calling
-        try:
-            with open(self.__log_file, "a") as file_log:
-                file_log.write(
-                    "\n["
-                    + time.strftime("%c")
-                    + "] RUNNING COMMAND: "
-                    + " ".join(tilt_cmd)
-                    + "\n"
-                )
-                subprocess.call(tilt_cmd, stdout=file_log, stderr=file_log, env=env)
-        except subprocess.CalledProcessError as e:
-            print(f"ERROR: Error calling the command: {tilt_cmd}\nError: {e}")
-            raise
-        except IOError as e:
-            print(f"ERROR: Log file could not be written: {self.__log_file}\nError: {e}")
-            raise
-
-        # Post-processing of the reconstructed volume
-        try:
-            # Swap Y-Z axes from the output given by IMOD
-            hold_rec = np.swapaxes(lio.load_mrc(self.__rec3d_file), 1, 2)
-            # Flip Z-axis
-            lio.write_mrc(np.flip(hold_rec, axis=2), self.__rec3d_file)
-        except Exception as e:
-            print(f"ERROR: Failed during volume post-processing\nError: {e}")
-            raise
-   
     def set_header(self, data="mics", p_size=None, origin=None):
         """
         Set 3D reconstructed tomogram pixel (voxel) size using alter 'alterheader' IMOD script
@@ -372,59 +254,6 @@ class TEM:
         except IOError:
             print("ERROR: Log file could not be written:", self.__log_file)
             raise IOError
-    
-    def set_header_0(self, data="mics", p_size=None, origin=None):
-        """
-        Set 3D reconstructed tomogram pixel (voxel) size using 'alterheader' IMOD script
-
-        :param data: determines the data where the changes will be applied, valid: 'mics' or 'rec3d'
-        :param p_size: pixel size X, Y and Z dimensions (in Angstroms)
-        :param origin: origin X, Y and Z dimensions
-        """
-        assert (data == "mics") or (data == "rec3d")
-        if p_size is not None:
-            assert hasattr(p_size, "__len__") and len(p_size) == 3
-            assert all(x > 0 for x in p_size)  # Ensure positive pixel sizes
-        if origin is not None:
-            assert hasattr(origin, "__len__") and len(origin) == 3
-
-        # Building the command
-        aheader_cmd = [IMOD_CMD_AHEADER]
-        target_file = self.__micgraphs_file if data == "mics" else self.__rec3d_file
-        aheader_cmd += [target_file]
-
-        # Add pixel size option if provided
-        if p_size is not None:
-            aheader_cmd += ["-del", f"{p_size[0]},{p_size[1]},{p_size[2]}"]
-
-        # Add origin option if provided
-        if origin is not None:
-            aheader_cmd += ["-org", f"{origin[0]},{origin[1]},{origin[2]}"]
-
-        # Set up IMOD environment (consistent with other functions)
-        env = os.environ.copy()
-        env["PATH"] = (
-            "/sw/rev/25.04/skylake_rocky8/linux-rocky8-skylake_avx512/gcc-14.2.0/"
-            "imod-5.1.0-tycs5f2u64sp3g2y3ruccwnqmr2jsgz6/bin:" + env["PATH"]
-        )
-        env["IMOD_DIR"] = "/sw/rev/25.04/skylake_rocky8/linux-rocky8-skylake_avx512/gcc-14.2.0/imod-5.1.0-tycs5f2u64sp3g2y3ruccwnqmr2jsgz6"
-
-        # Command calling with improved error handling
-        try:
-            with open(self.__log_file, "a") as file_log:
-                file_log.write(
-                    f"\n[{time.strftime('%c')}] RUNNING COMMAND: {' '.join(aheader_cmd)}\n"
-                )
-                subprocess.call(aheader_cmd, stdout=file_log, stderr=file_log, env=env)
-        except subprocess.CalledProcessError as e:
-            print(f"ERROR: Error calling alterheader command: {aheader_cmd}\nError: {e}")
-            raise
-        except IOError as e:
-            print(f"ERROR: Log file could not be written: {self.__log_file}\nError: {e}")
-            raise
-        except Exception as e:
-            print(f"ERROR: Unexpected error in set_header: {e}")
-            raise
     
     def invert_mics_den(self):
         """
