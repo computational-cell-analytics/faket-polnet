@@ -5,10 +5,10 @@ import os
 from tqdm import tqdm
 import sys
 import numpy as np
-from scipy.ndimage import gaussian_filter
 import subprocess
 import mrcfile
 from .import lio
+from .utils import center_crop
 from .import tem
 import shutil
 import random
@@ -43,7 +43,7 @@ def relion_lowpass(input_path, output_path, lowpass_res):
 
 def project_content_micrographs(out_base_dir, simulation_dir, tilt_range=(-60, 60, 3), detector_snr=None,
                                 simulation_index=None, add_misalignment=False, ax="Y", tomo_index=None,
-                                sigma=0.0, lowpass_res=0.0):
+                                lowpass_res=0.0):
     """
     Project micrographs from 3D densities and save all TEM-related files in the output directory.
 
@@ -112,11 +112,6 @@ def project_content_micrographs(out_base_dir, simulation_dir, tilt_range=(-60, 6
         if vol is None:
             raise ValueError(f"Failed to load 3D density file {tomo_den_out}.")
         print(f"Loaded tomogram from {tomo_den_out} with shape {vol.shape}")
-
-        #TODO remove gaussian smoothing
-        if sigma > 0.0:
-            vol = gaussian_filter(vol.astype(np.float32), sigma=sigma)
-            print(f"Applied Gaussian smoothing with sigma={sigma}.")
 
         temic.gen_tilt_series_imod(vol, np.arange(*tilt_range), ax=ax)
 
@@ -196,8 +191,9 @@ def reconstruct_micrographs_only_recon3D(TEM_path, faket_path, out_base_dir, snr
     print(f"Reconstructed tomogram saved to {out_tomo_rec}")
     print(f"Reconstruction completed in {time.time() - hold_time:.2f} seconds.")
 
+
 def project_style_micrographs(style_tomo_dir, out_base_dir, tilt_range=(-60, 60, 3), ax="Y",
-                              invert_density=False, target_size=None):
+                              invert_density=False, target_shape=None):
     """
     Project style micrographs from reconstructed tomograms.
 
@@ -219,13 +215,9 @@ def project_style_micrographs(style_tomo_dir, out_base_dir, tilt_range=(-60, 60,
             print(f"Skipping {filename}, empty or unreadable.")
             continue
 
-        # Center-crop XY to target_size if larger
-        # lio.load_mrc returns (X, Y, Z), so axes 0 and 1 are spatial
-        if target_size is not None:
-            X, Y, Z = vol.shape
-            cx, cy = X // 2, Y // 2
-            w, h = min(X, target_size), min(Y, target_size)
-            vol = vol[cx - w//2 : cx + w//2, cy - h//2 : cy + h//2, :]
+        # Center-crop to target_shape if provided; lio.load_mrc returns (X, Y, Z)
+        if target_shape is not None:
+            vol = center_crop(vol, target_shape)
             print(f"Center-cropped style tomogram to {vol.shape[0]}x{vol.shape[1]}x{vol.shape[2]}.")
 
         # Create output folder for projections

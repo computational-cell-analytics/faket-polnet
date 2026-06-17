@@ -49,7 +49,6 @@ def parse_args():
     
     # Other parameters
     parser.add_argument('--detector_snr', type=float, nargs=2, default=[0.15, 0.20], help='Detector SNR range')
-    parser.add_argument('--smooth_sigma', type=float, default=0.0, help='Sigma for Gaussian smoothing applied to synthetic volume before projection. 0 disables.')
     parser.add_argument('--lowpass', type=float, default=0.0, help='Lowpass filter frequency (A) applied to synhetic density.')
     parser.add_argument('--denoised', action='store_true', help='Use denoised style micrographs')
     parser.add_argument('--random_faket', action='store_true', default=True, help='Use random faket style transfer')
@@ -109,8 +108,13 @@ def run_setup(args, base_dir, style_dir, style_tomo_dir, style_tomo_exists, styl
     elif style_tomo_exists:
         print("Style tomogram directory found but style directory doesn't exist. Running projection...")
         style_mics_out_dir.mkdir(parents=True, exist_ok=True)
+        target_shape = None
+        tomo_den = simulation_base_dir / "tomos" / "tomo_den_0.mrc"
+        if tomo_den.exists():
+            with mrcfile.open(str(tomo_den), permissive=True) as mrc:
+                target_shape = mrc.data.shape[::-1]
         project_style_micrographs(style_tomo_dir, style_mics_out_dir, tilt_range=tilt_range,
-                                   ax="Y", target_size=faket_end_scale)
+                                   ax="Y", target_shape=target_shape)
         copy_style_micrographs(style_mics_out_dir, style_dir, copy_flag=False)
         print(f"Style projection completed and copied to: {style_dir}")
     else:
