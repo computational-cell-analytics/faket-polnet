@@ -3,6 +3,8 @@ import matplotlib.pyplot as plt
 import mrcfile
 from pathlib import Path
 
+from .utils import center_crop
+
 
 def compute_radial_power_spectrum(arr):
     """
@@ -25,20 +27,18 @@ def compute_radial_power_spectrum(arr):
     return (power / counts)[:r_max]
 
 
-def _compare_and_plot(rps1, rps2, name1, name2, title, figsize, n_freq, save_path=None):
+def _compare_and_plot(rps1, rps2, name1, name2, title, figsize, save_path=None):
     eps = 1e-12
     rps1 = rps1 / rps1.sum()
     rps2 = rps2 / rps2.sum()
-    freq = np.linspace(0, 1, n_freq)
-    p1 = np.interp(freq, np.linspace(0, 1, len(rps1)), rps1)
-    p2 = np.interp(freq, np.linspace(0, 1, len(rps2)), rps2)
-    log_l2 = float(np.sqrt(np.mean((np.log10(p1 + eps) - np.log10(p2 + eps)) ** 2)))
+    log_l2 = float(np.sqrt(np.mean((np.log10(rps1 + eps) - np.log10(rps2 + eps)) ** 2)))
 
+    freq = np.linspace(0, 1, len(rps1))
     fig, ax = plt.subplots(figsize=figsize)
-    ax.semilogy(np.linspace(0, 1, len(rps1)), rps1, label=name1, color="steelblue")
-    ax.semilogy(np.linspace(0, 1, len(rps2)), rps2, label=name2, color="coral")
-    ax.set_xlabel("Spatial frequency (normalized)")
-    ax.set_ylabel("Normalized power (log scale)")
+    ax.semilogy(freq, rps1, label=name1, color="steelblue")
+    ax.semilogy(freq, rps2, label=name2, color="coral")
+    ax.set_xlabel("Spatial frequency")
+    ax.set_ylabel("Power (log scale)")
     ax.set_title(f"{title} (log-L2 = {log_l2:.4f})")
     ax.legend()
     plt.tight_layout()
@@ -48,76 +48,146 @@ def _compare_and_plot(rps1, rps2, name1, name2, title, figsize, n_freq, save_pat
     return log_l2
 
 
-def compare_power_spectra_2d(tomo1_path, tomo2_path, figsize=(7, 5), n_freq=256, save_path=None):
+def compare_power_spectra_2d(style_path, faket_path, figsize=(7, 5), save_path=None):
     """
-    Compare two tomograms via their per-slice radial power spectra,
-    averaged over z-slices.
+    Compare a style and a faket (style-transferred) tomogram via their per-slice
+    radial power spectra, averaged over z-slices. The style is center-cropped to
+    match the faket tomogram's shape.
 
     Parameters:
-        tomo1_path (str): Path to the first tomogram.
-        tomo2_path (str): Path to the second tomogram.
+        style_path (str): Path to the style (reference) tomogram.
+        faket_path (str): Path to the faket (style-transferred) tomogram.
         figsize (tuple): Figure size for the plot.
-        n_freq (int): Number of points on the shared normalized-frequency grid.
 
     Returns:
         float: L2 distance between the two log power spectra.
     """
-    with mrcfile.open(tomo1_path, permissive=True) as mrc:
-        tomo1 = np.copy(mrc.data).astype(np.float32)
-    with mrcfile.open(tomo2_path, permissive=True) as mrc:
-        tomo2 = np.copy(mrc.data).astype(np.float32)
+    with mrcfile.open(style_path, permissive=True) as mrc:
+        style = np.copy(mrc.data).astype(np.float32)
+    with mrcfile.open(faket_path, permissive=True) as mrc:
+        faket = np.copy(mrc.data).astype(np.float32)
+    style = center_crop(style, faket.shape)
 
-    name1 = Path(tomo1_path).stem
-    name2 = Path(tomo2_path).stem
+    name1 = Path(style_path).stem
+    name2 = Path(faket_path).stem
 
-    rps1 = np.mean([compute_radial_power_spectrum(s) for s in tomo1], axis=0)
-    rps2 = np.mean([compute_radial_power_spectrum(s) for s in tomo2], axis=0)
+    rps1 = np.mean([compute_radial_power_spectrum(s) for s in style], axis=0)
+    rps2 = np.mean([compute_radial_power_spectrum(s) for s in faket], axis=0)
 
-    return _compare_and_plot(rps1, rps2, name1, name2, "Power Spectrum 2D", figsize, n_freq, save_path=save_path)
+    return _compare_and_plot(rps1, rps2, name1, name2, "Power Spectrum 2D", figsize, save_path=save_path)
 
 
-def compare_power_spectra_3d(tomo1_path, tomo2_path, figsize=(7, 5), n_freq=256, save_path=None):
+def compare_power_spectra_3d(style_path, faket_path, figsize=(7, 5), save_path=None):
     """
-    Compare two tomograms via their full 3D radial power spectra.
+    Compare a style and a faket (style-transferred) tomogram via 3D radial power spectra. 
+    The style is center-cropped to match the faket tomogram's shape.
 
     Parameters:
-        tomo1_path (str): Path to the first tomogram.
-        tomo2_path (str): Path to the second tomogram.
+        style_path (str): Path to the style (reference) tomogram.
+        faket_path (str): Path to the faket (style-transferred) tomogram.
         figsize (tuple): Figure size for the plot.
-        n_freq (int): Number of points on the shared normalized-frequency grid.
 
     Returns:
         float: L2 distance between the two log power spectra.
     """
-    with mrcfile.open(tomo1_path, permissive=True) as mrc:
-        tomo1 = np.copy(mrc.data).astype(np.float32)
-    with mrcfile.open(tomo2_path, permissive=True) as mrc:
-        tomo2 = np.copy(mrc.data).astype(np.float32)
+    with mrcfile.open(style_path, permissive=True) as mrc:
+        style = np.copy(mrc.data).astype(np.float32)
+    with mrcfile.open(faket_path, permissive=True) as mrc:
+        faket = np.copy(mrc.data).astype(np.float32)
+    style = center_crop(style, faket.shape)
 
-    name1 = Path(tomo1_path).stem
-    name2 = Path(tomo2_path).stem
+    name1 = Path(style_path).stem
+    name2 = Path(faket_path).stem
 
-    rps1 = compute_radial_power_spectrum(tomo1)
-    rps2 = compute_radial_power_spectrum(tomo2)
+    rps1 = compute_radial_power_spectrum(style)
+    rps2 = compute_radial_power_spectrum(faket)
 
-    return _compare_and_plot(rps1, rps2, name1, name2, "Power Spectrum 3D", figsize, n_freq, save_path=save_path)
+    return _compare_and_plot(rps1, rps2, name1, name2, "Power Spectrum 3D", figsize, save_path=save_path)
+
+
+def compute_intensity_distribution(arr, bins=200, value_range=None):
+    """
+    Normalized intensity histogram of an array.
+
+    Parameters:
+        arr (np.ndarray): Input array.
+        bins (int): Number of histogram bins.
+        value_range (tuple): (min, max) range for the histogram.
+
+    Returns:
+        tuple: (density, bin_centers) 1D arrays.
+    """
+    density, edges = np.histogram(arr.ravel(), bins=bins, range=value_range, density=True)
+    centers = 0.5 * (edges[:-1] + edges[1:])
+    return density, centers
+
+
+def compare_intensity_distributions(style_path, faket_path, bins=200, figsize=(7, 5), save_path=None):
+    """
+    Compare the intensity distributions of a style and a faket (style-transferred)
+    tomogram. The style is center-cropped to match the faket tomogram's shape.
+
+    Parameters:
+        style_path (str): Path to the style (reference) tomogram.
+        faket_path (str): Path to the faket (style-transferred) tomogram.
+        bins (int): Number of histogram bins.
+        figsize (tuple): Figure size for the plot.
+
+    Returns:
+        float: Wasserstein distance between the two intensity distributions.
+    """
+    from scipy.stats import wasserstein_distance
+
+    with mrcfile.open(style_path, permissive=True) as mrc:
+        style = np.copy(mrc.data).astype(np.float32)
+    with mrcfile.open(faket_path, permissive=True) as mrc:
+        faket = np.copy(mrc.data).astype(np.float32)
+    style = center_crop(style, faket.shape)
+
+    name1 = Path(style_path).stem
+    name2 = Path(faket_path).stem
+
+    lo = min(np.percentile(style, 1), np.percentile(faket, 1))
+    hi = max(np.percentile(style, 99), np.percentile(faket, 99))
+    d1, c1 = compute_intensity_distribution(style, bins, (lo, hi))
+    d2, c2 = compute_intensity_distribution(faket, bins, (lo, hi))
+    wd = float(wasserstein_distance(c1, c2, d1, d2))
+
+    print(f"{'stat':<8}{name1:>16}{name2:>16}")
+    for label, fn in [("mean", np.mean), ("std", np.std),
+                      ("p5", lambda a: np.percentile(a, 5)),
+                      ("p50", np.median),
+                      ("p95", lambda a: np.percentile(a, 95))]:
+        print(f"{label:<8}{fn(style):>16.4f}{fn(faket):>16.4f}")
+
+    fig, ax = plt.subplots(figsize=figsize)
+    ax.fill_between(c1, d1, alpha=0.5, label=name1, color="steelblue")
+    ax.fill_between(c2, d2, alpha=0.5, label=name2, color="coral")
+    ax.set_xlabel("Intensity")
+    ax.set_ylabel("Density")
+    ax.set_title(f"Intensity Distribution (Wasserstein = {wd:.4f})")
+    ax.legend()
+    plt.tight_layout()
+    if save_path is not None:
+        fig.savefig(save_path, dpi=150)
+    plt.close(fig)
+    return wd
 
 
 def main():
     import argparse
     import json
     parser = argparse.ArgumentParser(description="Compare radial power spectra of two tomograms and save the plot.")
-    parser.add_argument("--styled_path", required=True, help="Style-transferred tomogram to evaluate.")
+    parser.add_argument("--faket_path", required=True, help="Style-transferred tomogram to evaluate.")
     parser.add_argument("--snr_json", required=True, help="JSON mapping tomogram key to style.")
     parser.add_argument("--style_dir", required=True, help="Directory containing style tomograms.")
-    parser.add_argument("--mode", choices=["2d", "3d"], default="2d", help="2D mode computes power spectrum per slice.")
+    parser.add_argument("--mode", choices=["2d", "3d", "intensity"], default="2d")
     parser.add_argument("--tag", required=True, help="Identifier for this parameter setting.")
     parser.add_argument("--png_dir", required=True, help="Directory to save the comparison plot.")
     parser.add_argument("--csv_path", default=None, help="If set, append metrics to this CSV.")
-    parser.add_argument("--n_freq", type=int, default=256)
     args = parser.parse_args()
 
-    key = Path(args.styled_path).stem
+    key = Path(args.faket_path).stem
     if key.endswith("_faket"):
         key = key[:-len("_faket")]
     with open(args.snr_json) as f:
@@ -128,9 +198,13 @@ def main():
     png_dir.mkdir(parents=True, exist_ok=True)
     save_path = png_dir / f"{args.tag}_{args.mode}.png"
 
-    rad_psd = compare_power_spectra_2d if args.mode == "2d" else compare_power_spectra_3d
-    log_l2 = rad_psd(style_path, args.styled_path, n_freq=args.n_freq, save_path=str(save_path))
-    print(f"tag={args.tag} mode={args.mode} log_l2={log_l2:.6f} png={save_path}")
+    compare = {
+        "2d": compare_power_spectra_2d,
+        "3d": compare_power_spectra_3d,
+        "intensity": compare_intensity_distributions,
+    }[args.mode]
+    score = compare(style_path, args.faket_path, save_path=str(save_path))
+    print(f"Saved figure to png: {save_path}")
 
     if args.csv_path:
         csv_path = Path(args.csv_path)
@@ -138,8 +212,8 @@ def main():
         new_file = not csv_path.exists()
         with open(csv_path, "a") as f:
             if new_file:
-                f.write("tag,mode,log_l2\n")
-            f.write(f"{args.tag},{args.mode},{log_l2:.6f}\n")
+                f.write("tag,mode,score\n")
+            f.write(f"{args.tag},{args.mode},{score:.6f}\n")
 
 
 if __name__ == "__main__":
