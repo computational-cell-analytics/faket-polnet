@@ -6,17 +6,21 @@ from pathlib import Path
 from .utils import center_crop
 
 
-def compute_radial_power_spectrum(arr):
+def compute_radial_power_spectrum(arr, mode):
     """
-    Radially-averaged power spectrum of a 2D or 3D array.
+    Radially-averaged power spectrum: per-slice mean (2D) or full volume (3D).
 
     Parameters:
         arr (np.ndarray): 2D image or 3D volume.
+        mode (str): FTT computation mode: "2d" or "3d".
 
     Returns:
         np.ndarray: 1D radial power profile from zero frequency to the Nyquist
             of the shortest axis.
     """
+    if mode == "2d":
+        return np.mean([compute_radial_power_spectrum(s, mode="3d") for s in arr], axis=0)
+
     ps = np.abs(np.fft.fftshift(np.fft.fftn(arr))) ** 2
     center = np.array(ps.shape) // 2
     coords = np.indices(ps.shape)
@@ -27,82 +31,47 @@ def compute_radial_power_spectrum(arr):
     return (power / counts)[:r_max]
 
 
-def _compare_and_plot(rps1, rps2, name1, name2, title, figsize, save_path=None):
-    eps = 1e-12
+def compare_power_spectra(style_path, faket_path, mode, save_path=None):
+    """
+    Compare a style and a faket (style-transferred) tomogram via their radial power
+    spectra. The style is center-cropped to match the faket tomogram's shape.
+
+    Parameters:
+        style_path (str): Path to the style (reference) tomogram.
+        faket_path (str): Path to the faket (style-transferred) tomogram.
+        mode (str): FTT computation mode: "2d" or "3d".
+
+    Returns:
+        float: log-L2 distance between the two normalized power spectra.
+    """
+    with mrcfile.open(style_path, permissive=True) as mrc:
+        style = np.copy(mrc.data).astype(np.float32)
+    with mrcfile.open(faket_path, permissive=True) as mrc:
+        faket = np.copy(mrc.data).astype(np.float32)
+    style = center_crop(style, faket.shape)
+
+    rps1 = compute_radial_power_spectrum(style, mode)
+    rps2 = compute_radial_power_spectrum(faket, mode)
     rps1 = rps1 / rps1.sum()
     rps2 = rps2 / rps2.sum()
+
+    eps = 1e-12
     log_l2 = float(np.sqrt(np.mean((np.log10(rps1 + eps) - np.log10(rps2 + eps)) ** 2)))
 
-    freq = np.linspace(0, 1, len(rps1))
-    fig, ax = plt.subplots(figsize=figsize)
-    ax.semilogy(freq, rps1, label=name1, color="steelblue")
-    ax.semilogy(freq, rps2, label=name2, color="coral")
-    ax.set_xlabel("Spatial frequency")
-    ax.set_ylabel("Power (log scale)")
-    ax.set_title(f"{title} (log-L2 = {log_l2:.4f})")
-    ax.legend()
-    plt.tight_layout()
     if save_path is not None:
+        freq = np.linspace(0, 1, len(rps1))
+        fig, ax = plt.subplots(figsize=(7, 5))
+        ax.semilogy(freq, rps1, label=Path(style_path).stem, color="steelblue")
+        ax.semilogy(freq, rps2, label=Path(faket_path).stem.replace("_faket", ""), color="coral")
+        ax.set_xlabel("Spatial Frequency")
+        ax.set_ylabel("Log(Power)")
+        ax.set_title(f"Power Spectrum {mode.upper()} (Log-L2 = {log_l2:.4f})")
+        ax.legend()
+        plt.tight_layout()
         fig.savefig(save_path, dpi=150)
-    plt.close(fig)
+        plt.close(fig)
+
     return log_l2
-
-
-def compare_power_spectra_2d(style_path, faket_path, figsize=(7, 5), save_path=None):
-    """
-    Compare a style and a faket (style-transferred) tomogram via their per-slice
-    radial power spectra, averaged over z-slices. The style is center-cropped to
-    match the faket tomogram's shape.
-
-    Parameters:
-        style_path (str): Path to the style (reference) tomogram.
-        faket_path (str): Path to the faket (style-transferred) tomogram.
-        figsize (tuple): Figure size for the plot.
-
-    Returns:
-        float: L2 distance between the two log power spectra.
-    """
-    with mrcfile.open(style_path, permissive=True) as mrc:
-        style = np.copy(mrc.data).astype(np.float32)
-    with mrcfile.open(faket_path, permissive=True) as mrc:
-        faket = np.copy(mrc.data).astype(np.float32)
-    style = center_crop(style, faket.shape)
-
-    name1 = Path(style_path).stem
-    name2 = Path(faket_path).stem
-
-    rps1 = np.mean([compute_radial_power_spectrum(s) for s in style], axis=0)
-    rps2 = np.mean([compute_radial_power_spectrum(s) for s in faket], axis=0)
-
-    return _compare_and_plot(rps1, rps2, name1, name2, "Power Spectrum 2D", figsize, save_path=save_path)
-
-
-def compare_power_spectra_3d(style_path, faket_path, figsize=(7, 5), save_path=None):
-    """
-    Compare a style and a faket (style-transferred) tomogram via 3D radial power spectra. 
-    The style is center-cropped to match the faket tomogram's shape.
-
-    Parameters:
-        style_path (str): Path to the style (reference) tomogram.
-        faket_path (str): Path to the faket (style-transferred) tomogram.
-        figsize (tuple): Figure size for the plot.
-
-    Returns:
-        float: L2 distance between the two log power spectra.
-    """
-    with mrcfile.open(style_path, permissive=True) as mrc:
-        style = np.copy(mrc.data).astype(np.float32)
-    with mrcfile.open(faket_path, permissive=True) as mrc:
-        faket = np.copy(mrc.data).astype(np.float32)
-    style = center_crop(style, faket.shape)
-
-    name1 = Path(style_path).stem
-    name2 = Path(faket_path).stem
-
-    rps1 = compute_radial_power_spectrum(style)
-    rps2 = compute_radial_power_spectrum(faket)
-
-    return _compare_and_plot(rps1, rps2, name1, name2, "Power Spectrum 3D", figsize, save_path=save_path)
 
 
 def compute_intensity_distribution(arr, bins=200, value_range=None):
@@ -122,7 +91,7 @@ def compute_intensity_distribution(arr, bins=200, value_range=None):
     return density, centers
 
 
-def compare_intensity_distributions(style_path, faket_path, bins=200, figsize=(7, 5), save_path=None):
+def compare_intensity_distributions(style_path, faket_path, bins=200, save_path=None):
     """
     Compare the intensity distributions of a style and a faket (style-transferred)
     tomogram. The style is center-cropped to match the faket tomogram's shape.
@@ -131,7 +100,6 @@ def compare_intensity_distributions(style_path, faket_path, bins=200, figsize=(7
         style_path (str): Path to the style (reference) tomogram.
         faket_path (str): Path to the faket (style-transferred) tomogram.
         bins (int): Number of histogram bins.
-        figsize (tuple): Figure size for the plot.
 
     Returns:
         float: Wasserstein distance between the two intensity distributions.
@@ -160,7 +128,7 @@ def compare_intensity_distributions(style_path, faket_path, bins=200, figsize=(7
                       ("p95", lambda a: np.percentile(a, 95))]:
         print(f"{label:<8}{fn(style):>16.4f}{fn(faket):>16.4f}")
 
-    fig, ax = plt.subplots(figsize=figsize)
+    fig, ax = plt.subplots(figsize=(7, 5))
     ax.fill_between(c1, d1, alpha=0.5, label=name1, color="steelblue")
     ax.fill_between(c2, d2, alpha=0.5, label=name2, color="coral")
     ax.set_xlabel("Intensity")
@@ -172,49 +140,3 @@ def compare_intensity_distributions(style_path, faket_path, bins=200, figsize=(7
         fig.savefig(save_path, dpi=150)
     plt.close(fig)
     return wd
-
-
-def main():
-    import argparse
-    import json
-    parser = argparse.ArgumentParser(description="Compare radial power spectra of two tomograms and save the plot.")
-    parser.add_argument("--faket_path", required=True, help="Style-transferred tomogram to evaluate.")
-    parser.add_argument("--snr_json", required=True, help="JSON mapping tomogram key to style.")
-    parser.add_argument("--style_dir", required=True, help="Directory containing style tomograms.")
-    parser.add_argument("--mode", choices=["2d", "3d", "intensity"], default="2d")
-    parser.add_argument("--tag", required=True, help="Identifier for this parameter setting.")
-    parser.add_argument("--png_dir", required=True, help="Directory to save the comparison plot.")
-    parser.add_argument("--csv_path", default=None, help="If set, append metrics to this CSV.")
-    args = parser.parse_args()
-
-    key = Path(args.faket_path).stem
-    if key.endswith("_faket"):
-        key = key[:-len("_faket")]
-    with open(args.snr_json) as f:
-        style_name = json.load(f)[key]["style"]
-    style_path = str(Path(args.style_dir) / f"{style_name}.mrc")
-
-    png_dir = Path(args.png_dir)
-    png_dir.mkdir(parents=True, exist_ok=True)
-    save_path = png_dir / f"{args.tag}_{args.mode}.png"
-
-    compare = {
-        "2d": compare_power_spectra_2d,
-        "3d": compare_power_spectra_3d,
-        "intensity": compare_intensity_distributions,
-    }[args.mode]
-    score = compare(style_path, args.faket_path, save_path=str(save_path))
-    print(f"Saved figure to png: {save_path}")
-
-    if args.csv_path:
-        csv_path = Path(args.csv_path)
-        csv_path.parent.mkdir(parents=True, exist_ok=True)
-        new_file = not csv_path.exists()
-        with open(csv_path, "a") as f:
-            if new_file:
-                f.write("tag,mode,score\n")
-            f.write(f"{args.tag},{args.mode},{score:.6f}\n")
-
-
-if __name__ == "__main__":
-    main()
