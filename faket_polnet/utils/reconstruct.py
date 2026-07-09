@@ -115,12 +115,12 @@ def project_content_micrographs(out_base_dir, simulation_dir, tilt_range=(-60, 6
 
         temic.gen_tilt_series_imod(vol, np.arange(*tilt_range), ax=ax)
 
+        if add_misalignment:
+            temic.add_mics_misalignment(MALIGN_MN, MALIGN_MX, MALIGN_SG)
+
         clean_mics_path = os.path.join(tomo_output_dir, f"tomo_mics_clean_{i}.mrc")
         shutil.copyfile(temic._TEM__micgraphs_file, clean_mics_path)
         print(f"Saved clean noiseless projections to {clean_mics_path}")
-
-        if add_misalignment:
-            temic.add_mics_misalignment(MALIGN_MN, MALIGN_MX, MALIGN_SG)
 
         if detector_snr:
             snr = round(random.uniform(detector_snr[0], detector_snr[1]), 2) if isinstance(detector_snr, list) else detector_snr

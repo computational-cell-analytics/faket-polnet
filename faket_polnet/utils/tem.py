@@ -283,7 +283,7 @@ class TEM:
         n_angs = len(angs)
         shifts = (
             mn
-            + np.sin(angs) / np.sin(angs.max())
+            + mx * np.sin(angs) / np.sin(angs.max())
             + rng.normal(0, n_sigma, n_angs)
         )
         split_fs = rng.uniform(0, 1, n_angs)
