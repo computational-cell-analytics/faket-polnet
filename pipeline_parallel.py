@@ -51,8 +51,8 @@ def parse_args():
     parser.add_argument('--detector_snr', type=float, nargs=2, default=[0.15, 0.20], help='Detector SNR range')
     parser.add_argument('--lowpass', type=float, default=0.0, help='Lowpass filter frequency (A) applied to synhetic density.')
     parser.add_argument('--denoised', action='store_true', help='Use denoised style micrographs')
-    parser.add_argument('--random_faket', action='store_true', default=True, help='Use random faket style transfer')
-   
+    parser.add_argument('--style_seed', type=int, default=None, help='Seed for reproducible random style selection order.')
+
     # Faket parameters
     parser.add_argument('--faket_gpu', type=int, default=0, help='GPU device ID for faket')
     parser.add_argument('--faket_iterations', type=int, default=500, help='Number of iterations for faket style transfer')
@@ -196,13 +196,18 @@ def run_style_transfer(tomo_index, args, base_dir, style_dir, faket_end_scale):
     if snr is None:
         snr = float(Path(NOISY_TOMOGRAM).stem.rsplit('_', 1)[-1])
 
-    if args.random_faket:
-        STYLE_TOMOGRAM_CMD = f"find {style_dir} -name '*.mrc' | shuf -n 1"
+    if args.style_seed is not None:
+        style_paths = sorted(str(p) for p in Path(style_dir).glob("*.mrc"))
+        if not style_paths:
+            print(f"No style micrographs found in {style_dir}. Skipping.")
+            return
+        order = np.random.default_rng(args.style_seed).permutation(len(style_paths))
+        STYLE_TOMOGRAM = style_paths[order[tomo_index % len(style_paths)]]
     else:
-        STYLE_TOMOGRAM_CMD = f"find {style_dir} -name '*.mrc' | head -n 1"
-    STYLE_TOMOGRAM = subprocess.run(
-        STYLE_TOMOGRAM_CMD, shell=True, capture_output=True, text=True
-    ).stdout.strip()
+        STYLE_TOMOGRAM_CMD = f"find {style_dir} -name '*.mrc' | shuf -n 1"
+        STYLE_TOMOGRAM = subprocess.run(
+            STYLE_TOMOGRAM_CMD, shell=True, capture_output=True, text=True
+        ).stdout.strip()
 
     style_name = Path(STYLE_TOMOGRAM).name.replace('_style_mics.mrc', '')
 
