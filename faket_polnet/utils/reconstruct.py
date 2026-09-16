@@ -224,9 +224,16 @@ def project_style_micrographs(style_tomo_dir, out_base_dir, tilt_range=(-60, 60,
         tomo_output_dir = os.path.join(out_base_dir, f"StyleMicrographs_{tomo_id}")
         os.makedirs(tomo_output_dir, exist_ok=True)
 
+        tlt_path = os.path.join(style_tomo_dir, f"{tomo_id}.tlt")
+        if os.path.exists(tlt_path):
+            angles = np.loadtxt(tlt_path)
+            print(f"Using per-tomogram tilt scheme from {tomo_id}.tlt ({len(angles)} tilts).")
+        else:
+            angles = np.arange(*tilt_range)
+
         # Use TEM object to simulate tilt series (no noise, no misalignment)
         temic = tem.TEM(tomo_output_dir)
-        temic.gen_tilt_series_imod(vol, np.arange(*tilt_range), ax=ax)
+        temic.gen_tilt_series_imod(vol, angles, ax=ax)
         if invert_density:
             temic.invert_mics_den()
         # Save the style micrographs (no noise)

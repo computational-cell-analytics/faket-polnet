@@ -102,7 +102,7 @@ python pipeline.py /path/to/your/base_directory
 - `--faket_step_size`: Step size for faket (default: 0.15)
 - `--faket_min_scale`: Minimum scale for faket (default: 630)
 - `--faket_end_scale`: End scale for faket (default: 630)
-- `--random_faket`: Use random faket style transfer (default: True)
+- `--style_seed`: Seed for reproducible random style selection order (default: None; random selection when unset)
 - `--denoised`: Use denoised style micrographs (default: False)
 
 ## Pipeline Steps

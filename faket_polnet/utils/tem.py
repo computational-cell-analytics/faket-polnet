@@ -272,7 +272,7 @@ class TEM:
         :param n_sigma: sigma value for Gaussian noise.
         :return: None
         """
-
+        
         assert mx >= mn
 
         rng = np.random.default_rng()

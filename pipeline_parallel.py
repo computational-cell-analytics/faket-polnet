@@ -31,8 +31,7 @@ def parse_args():
     
     # Index parameters
     parser.add_argument('--micrograph_index', type=int, default=0, 
-                        help='Micrograph index. Handles intermediate directories,'
-                        'should match `train_dir_index`.')
+                        help='Micrograph index. Handles intermediate directories, should match `train_dir_index`.')
     parser.add_argument('--style_index', type=int, default=0, 
                         help='Style index. Corresponds to the style tomograms.')
     parser.add_argument('--simulation_index', type=int, default=0, 
