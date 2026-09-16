@@ -163,9 +163,10 @@ def label_transform(in_csv_list, out_dir, labels_table, simulation_index, mappin
     """
     if mapping_flag:
         mapping = {
-            "1fa2_10A": "beta-amylase",
+            "1fa2-tetramer_10A": "beta-amylase",
             "6drv_10A": "beta-galactosidase",
-            "6n4v_10A": "virus-like-particle",
+            "1dwn-cargo_10A": "virus-like-particle",
+            "emd_41917_10A": "virus-like-particle",
             "6qzp_10A": "ribosome",
             "7n4y_10A": "thyroglobulin",
             "8cpv_10A": "apo-ferritin",
